@@ -120,3 +120,80 @@ h1 { font: 800 clamp(27px,3vw,37px)/1.18 Manrope, sans-serif; letter-spacing: -1
 .auth-button:hover { background: #086b64; }
 .auth-error { color: #a64739; font-size: 11px; background: #fff0ec; padding: 10px 12px; border-radius: 7px; width: 100%; margin-top: 8px; }
 .auth-caption { margin-top: 26px; color: #9aa7ad; font-size: 9px; }
+
+
+.subscriptions-panel {
+  margin: 20px 0 28px;
+  padding: 18px;
+  border: 1px solid #e7ecef;
+  border-radius: 10px;
+  background: #fff;
+}
+.subscription-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.subscription-heading h2 {
+  margin: 5px 0 0;
+  color: #26353f;
+  font: 700 17px Manrope, sans-serif;
+  letter-spacing: -.4px;
+}
+.subscription-count {
+  color: #167b70;
+  background: #eaf7f3;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font: 500 9px 'DM Mono', monospace;
+  white-space: nowrap;
+}
+.subscription-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.subscription-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #edf0f2;
+  border-radius: 8px;
+  background: #fcfdfd;
+}
+.subscription-symbol {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #267f74;
+  background: #e8f6f2;
+}
+.subscription-symbol.azure { color: #397fc5; background: #e9f3ff; }
+.subscription-symbol.gcp { color: #418b61; background: #eaf7ed; }
+.subscription-symbol.terraform { color: #7b69be; background: #f0edfc; }
+.subscription-symbol.gitlab { color: #c46c43; background: #fff0e7; }
+.subscription-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.subscription-copy strong { color: #35444d; font-size: 10px; }
+.subscription-copy small { color: #8a969e; font-size: 9px; }
+.subscription-toggle {
+  flex: 0 0 auto;
+  border: 1px solid #d9e9e4;
+  border-radius: 6px;
+  background: #fff;
+  color: #167b70;
+  padding: 7px 8px;
+  font-size: 9px;
+  font-weight: 600;
+}
+.subscription-toggle:hover:not(:disabled) { background: #eff9f5; }
+.subscription-toggle.enabled { background: #eaf7f3; border-color: #c6e9df; }
+.subscription-toggle:disabled { cursor: wait; opacity: .65; }
+.subscription-hint, .subscription-message { margin: 10px 0 0; color: #7d8b93; font-size: 10px; line-height: 1.6; }
+.subscription-message { color: #167b70; }
+@media (max-width: 950px) { .subscription-grid { grid-template-columns: 1fr; } }
