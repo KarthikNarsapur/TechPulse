@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 import boto3
@@ -9,7 +10,7 @@ import boto3
 from app.adapters.registry import fetch_source
 from app.models import SourceConfig
 from app.source_registry import load_sources
-from app.storage import SourceStore, UpdateStore
+from app.storage import PollStatusStore, SourceStore, UpdateStore
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -92,6 +93,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             message_id for message_id, source_id in source_jobs.items() if source_id == source.source_id
         ]
         try:
+            status_store = PollStatusStore()
+            status_store.started(source.source_id, started_at=datetime.now(timezone.utc).isoformat())
             updates = fetch_source(source)
             source_new = 0
             source_changed = 0
@@ -105,15 +108,31 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     _enqueue_analysis(update.update_id, update.content_hash, update.source_id)
             new_count += source_new
             changed_count += source_changed
+            status_store.succeeded(
+                source.source_id,
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                fetched=len(updates),
+                new_count=source_new,
+                changed_count=source_changed,
+            )
             logger.info(json.dumps({
                 "event": "source_poll_succeeded",
                 "source_id": source.source_id,
                 "fetched": len(updates),
                 "new": source_new,
                 "changed": source_changed,
+                "duration_status": "checkpointed",
             }))
-        except Exception:  # noqa: BLE001 - let SQS retry transient source failure
+        except Exception as exc:  # noqa: BLE001 - let SQS retry transient source failure
             logger.exception("Source poll failed: %s", source.source_id)
+            try:
+                PollStatusStore().failed(
+                    source.source_id,
+                    failed_at=datetime.now(timezone.utc).isoformat(),
+                    error_type=type(exc).__name__,
+                )
+            except Exception:  # noqa: BLE001 - preserve the original poll failure
+                logger.exception("Unable to persist poll failure status: %s", source.source_id)
             failed_ids.update(related_message_ids)
 
     failures = [{"itemIdentifier": message_id} for message_id in sorted(failed_ids)]
