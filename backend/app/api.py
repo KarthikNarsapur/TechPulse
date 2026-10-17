@@ -6,10 +6,10 @@ from typing import Any, Literal
 import boto3
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.config import get_settings
-from app.storage import PollStatusStore, SubscriptionStore, UpdateStore
+from app.storage import PollStatusStore, SubscriptionStore, UpdateStore, UserStateStore
 
 settings = get_settings()
 app = FastAPI(
@@ -93,6 +93,20 @@ def _public_subscription(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+class UserStateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    saved: bool | None = None
+    read: bool | None = None
+
+    @model_validator(mode="after")
+    def require_a_state_change(self) -> "UserStateRequest":
+        if self.saved is None and self.read is None:
+            raise ValueError("At least one of saved or read must be provided.")
+        return self
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "techpulse-api"}
@@ -133,6 +147,50 @@ def get_update(update_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."})
     return item
 
+
+
+
+@app.get("/api/v1/user-state")
+def list_user_state(request: Request) -> dict[str, list[dict[str, Any]]]:
+    user_id, _ = _principal(request)
+    items = UserStateStore().list_for_user(user_id)
+    return {"items": [
+        {
+            "update_id": item["update_id"],
+            "saved": bool(item.get("saved", False)),
+            "read": bool(item.get("read", False)),
+            "created_at": item.get("created_at"),
+            "updated_at": item.get("updated_at"),
+        }
+        for item in items
+    ]}
+
+
+@app.put("/api/v1/user-state/{update_id}")
+def put_user_state(update_id: str, body: UserStateRequest, request: Request) -> dict[str, Any]:
+    user_id, _ = _principal(request)
+    if not UpdateStore().get(update_id):
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."})
+
+    store = UserStateStore()
+    existing = store.get(user_id, update_id) or {}
+    now = datetime.now(timezone.utc).isoformat()
+    item = {
+        "user_id": user_id,
+        "update_id": update_id,
+        "saved": existing.get("saved", False) if body.saved is None else body.saved,
+        "read": existing.get("read", False) if body.read is None else body.read,
+        "created_at": existing.get("created_at", now),
+        "updated_at": now,
+    }
+    store.put(item)
+    return {"item": {
+        "update_id": update_id,
+        "saved": item["saved"],
+        "read": item["read"],
+        "created_at": item["created_at"],
+        "updated_at": item["updated_at"],
+    }}
 
 
 @app.get("/api/v1/source-status")
