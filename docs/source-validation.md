@@ -34,3 +34,14 @@ Do not interpret an empty response as success unless the fetch and parsing check
 - Generic GitHub Releases API/Atom adapter for the long tail
 
 The registry URL may be an API endpoint, but the source link presented to users should be the canonical human-readable release page where available.
+
+## Running the validator
+
+Install the backend runtime requirements, then run from the repository root:
+
+```bash
+pip install -r backend/requirements.txt
+python scripts/validate_sources.py --all --json
+```
+
+Use `--all` to include disabled candidate feeds. Use `--strict` when validating only the selected (enabled by default) sources and require every selected source to return at least one parseable entry. The tool prints a report and intentionally catches failures per source so the remaining sources are still checked. It is not run on every CI build because transient vendor outages and rate limits would make CI unreliable; run it during source onboarding and before enabling a feed.
