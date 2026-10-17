@@ -96,7 +96,6 @@ resource "aws_dynamodb_table" "sources" {
   }
 }
 
-
 resource "aws_dynamodb_table" "poll_status" {
   name         = "${local.name}-poll-status"
   billing_mode = "PAY_PER_REQUEST"
@@ -163,7 +162,6 @@ resource "aws_dynamodb_table" "subscriptions" {
     enabled = true
   }
 }
-
 
 resource "aws_dynamodb_table" "user_state" {
   name         = "${local.name}-user-state"

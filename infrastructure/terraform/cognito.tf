@@ -34,19 +34,19 @@ resource "aws_cognito_user_pool_client" "web" {
   name         = "${local.name}-web"
   user_pool_id = aws_cognito_user_pool.main.id
 
-  generate_secret                      = false
-  prevent_user_existence_errors         = "ENABLED"
-  enable_token_revocation               = true
-  explicit_auth_flows                   = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
-  allowed_oauth_flows_user_pool_client  = true
-  allowed_oauth_flows                   = ["code"]
-  allowed_oauth_scopes                  = ["openid", "email", "profile"]
-  callback_urls                         = distinct(concat(var.cognito_callback_urls, ["https://${aws_cloudfront_distribution.frontend.domain_name}/"]))
-  logout_urls                           = distinct(concat(var.cognito_logout_urls, ["https://${aws_cloudfront_distribution.frontend.domain_name}/"]))
-  supported_identity_providers          = ["COGNITO"]
-  access_token_validity                 = 60
-  id_token_validity                     = 60
-  refresh_token_validity                = 30
+  generate_secret                     = false
+  prevent_user_existence_errors        = "ENABLED"
+  enable_token_revocation              = true
+  explicit_auth_flows                  = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email", "profile"]
+  callback_urls                        = distinct(concat(var.cognito_callback_urls, ["https://${aws_cloudfront_distribution.frontend.domain_name}/"]))
+  logout_urls                          = distinct(concat(var.cognito_logout_urls, ["https://${aws_cloudfront_distribution.frontend.domain_name}/"]))
+  supported_identity_providers         = ["COGNITO"]
+  access_token_validity                = 60
+  id_token_validity                    = 60
+  refresh_token_validity               = 30
   token_validity_units {
     access_token  = "minutes"
     id_token      = "minutes"
@@ -109,7 +109,6 @@ output "cognito_hosted_ui_url" {
   value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
 }
 
-
 resource "aws_apigatewayv2_route" "subscriptions_list" {
   api_id             = aws_apigatewayv2_api.http.id
   route_key          = "GET /api/v1/subscriptions"
@@ -157,4 +156,3 @@ resource "aws_apigatewayv2_route" "user_state_put" {
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
-
