@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 
 from app.config import get_settings
-from app.storage import SubscriptionStore, UpdateStore
+from app.storage import PollStatusStore, SubscriptionStore, UpdateStore
 
 settings = get_settings()
 app = FastAPI(
@@ -132,6 +132,27 @@ def get_update(update_id: str) -> dict[str, Any]:
     if not item:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."})
     return item
+
+
+
+@app.get("/api/v1/source-status")
+def source_status(request: Request) -> dict[str, Any]:
+    """Return safe polling checkpoints to signed-in users; never expose source credentials."""
+    _principal(request)
+    fields = (
+        "source_id",
+        "poll_status",
+        "poll_attempts",
+        "last_poll_started_at",
+        "last_poll_completed_at",
+        "last_poll_success_at",
+        "last_poll_fetched",
+        "last_poll_new",
+        "last_poll_changed",
+        "last_poll_error_type",
+    )
+    items = PollStatusStore().list_status()
+    return {"items": [{key: item[key] for key in fields if key in item} for item in items]}
 
 
 @app.get("/api/v1/subscriptions")
