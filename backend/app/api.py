@@ -1,4 +1,4 @@
-"""FastAPI application used by API Gateway through Mangum."""
+"""FastAPI application served through API Gateway and Mangum."""
 from datetime import datetime, timezone
 from typing import Any
 
@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
+from app.storage import UpdateStore
 
 settings = get_settings()
 app = FastAPI(
@@ -46,20 +47,30 @@ def list_updates(
     category: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
 ) -> dict[str, Any]:
-    """Feed API contract. Storage/index query is wired in the persistence increment."""
+    store = UpdateStore()
+    if technology:
+        result = store.query_by_technology(technology, limit=limit)
+        items = result["items"]
+        last_key = result.get("last_evaluated_key")
+    else:
+        # Do not scan the whole table for a user-facing feed. Require a technology
+        # until a curated home-feed index is added.
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "TECHNOLOGY_REQUIRED", "message": "Filter by technology for the pilot feed."},
+        )
+    if category:
+        items = [item for item in items if item.get("category") == category]
     return {
-        "items": [],
-        "next_cursor": None,
-        "filters": {"technology": technology, "category": category, "limit": limit},
+        "items": items,
+        "next_cursor": last_key,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": "storage_not_configured",
     }
 
 
 @app.get("/api/v1/updates/{update_id}")
 def get_update(update_id: str) -> dict[str, Any]:
-    # The API must not pretend that an unconfigured datastore returned a 404.
-    raise HTTPException(
-        status_code=503,
-        detail={"code": "STORAGE_NOT_CONFIGURED", "message": "Update storage is not configured yet."},
-    )
+    item = UpdateStore().get(update_id)
+    if not item:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."})
+    return item
