@@ -230,15 +230,22 @@ resource "aws_iam_role_policy" "lambda_data" {
   role = aws_iam_role.lambda_execution.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan"]
-      Resource = [
-        aws_dynamodb_table.updates.arn, "${aws_dynamodb_table.updates.arn}/index/*",
-        aws_dynamodb_table.sources.arn, aws_dynamodb_table.analyses.arn,
-        aws_dynamodb_table.subscriptions.arn, aws_dynamodb_table.deliveries.arn
-      ]
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan"]
+        Resource = [
+          aws_dynamodb_table.updates.arn, "${aws_dynamodb_table.updates.arn}/index/*",
+          aws_dynamodb_table.sources.arn, aws_dynamodb_table.analyses.arn,
+          aws_dynamodb_table.subscriptions.arn, aws_dynamodb_table.deliveries.arn
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["cognito-idp:GetUser"]
+        Resource = "*"
+      }
+    ]
   })
 }
 resource "aws_iam_role_policy" "lambda_queue_access" {
