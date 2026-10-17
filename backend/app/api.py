@@ -50,15 +50,10 @@ def list_updates(
     store = UpdateStore()
     if technology:
         result = store.query_by_technology(technology, limit=limit)
-        items = result["items"]
-        last_key = result.get("last_evaluated_key")
     else:
-        # Do not scan the whole table for a user-facing feed. Require a technology
-        # until a curated home-feed index is added.
-        raise HTTPException(
-            status_code=400,
-            detail={"code": "TECHNOLOGY_REQUIRED", "message": "Filter by technology for the pilot feed."},
-        )
+        result = store.query_all(limit=limit)
+    items = result["items"]
+    last_key = result.get("last_evaluated_key")
     if category:
         items = [item for item in items if item.get("category") == category]
     return {
