@@ -8,7 +8,6 @@ variable "environment" {
   description = "Deployment environment."
   type        = string
   default     = "dev"
-
   validation {
     condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "environment must be dev, staging, or prod."
@@ -22,17 +21,31 @@ variable "project_name" {
 }
 
 variable "frontend_allowed_origins" {
-  description = "Origins allowed to call the API. Set to the CloudFront URL for deployed environments."
+  description = "Origins allowed to call API."
   type        = list(string)
   default     = ["http://localhost:5173"]
 }
 
-variable "ai_provider" {
-  description = "AI provider integration is wired in a later increment; this variable documents the intended provider."
+variable "ses_from_address" {
+  description = "Verified SES sender address. Configure for environments that send email."
   type        = string
-  default     = "bedrock"
-  validation {
-    condition     = contains(["bedrock", "external"], var.ai_provider)
-    error_message = "ai_provider must be bedrock or external."
-  }
+  default     = ""
+}
+
+variable "cognito_callback_urls" {
+  description = "Allowed hosted UI callback URLs."
+  type        = list(string)
+  default     = ["http://localhost:5173/"]
+}
+
+variable "cognito_logout_urls" {
+  description = "Allowed hosted UI logout URLs."
+  type        = list(string)
+  default     = ["http://localhost:5173/"]
+}
+
+variable "ai_model_id" {
+  description = "Approved Bedrock model ID. Blank disables model invocation."
+  type        = string
+  default     = ""
 }
