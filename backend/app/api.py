@@ -52,6 +52,9 @@ def _principal(request: Request) -> tuple[str, str | None]:
     claims = jwt.get("claims") or {}
     user_id = str(claims.get("sub") or "").strip()
     email = str(claims.get("email") or "").strip() or None
+    email_verified = str(claims.get("email_verified") or "").lower() == "true"
+    if not email_verified:
+        email = None
     if not user_id:
         raise HTTPException(
             status_code=401,
