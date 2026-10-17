@@ -44,6 +44,12 @@ variable "cognito_logout_urls" {
   default     = ["http://localhost:5173/"]
 }
 
+variable "cognito_domain_prefix" {
+  description = "Globally unique Cognito hosted UI domain prefix. Blank derives one from project, environment, and AWS account ID."
+  type        = string
+  default     = ""
+}
+
 variable "ai_model_id" {
   description = "Approved Bedrock model ID. Blank disables model invocation."
   type        = string
