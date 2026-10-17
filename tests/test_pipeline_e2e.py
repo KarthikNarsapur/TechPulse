@@ -115,7 +115,7 @@ def test_fixture_rss_to_persisted_analysis_with_fake_provider(monkeypatch) -> No
         }]
     }
 
-    update_table = MemoryTable(updates_store.items)
+    update_table = MemoryTable({(key,): value for key, value in updates_store.items.items()})
     analyses_table = MemoryTable()
     subscriptions_table = MagicMock()
     subscriptions_table.query.return_value = {"Items": []}
