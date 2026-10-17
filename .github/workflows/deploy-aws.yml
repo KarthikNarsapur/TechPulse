@@ -1,0 +1,228 @@
+name: Deploy TechPulse to AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Plan changes first; choose apply only after reviewing the plan artifact."
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+        default: plan
+      environment:
+        description: "TechPulse environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+        default: dev
+      aws_region:
+        description: "AWS region"
+        required: true
+        type: string
+        default: ap-south-1
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: techpulse-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, plan, and optionally deploy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      AWS_REGION: ${{ inputs.aws_region }}
+      TF_VAR_aws_region: ${{ inputs.aws_region }}
+      TF_VAR_environment: ${{ inputs.environment }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Verify target AWS account
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
+          if [[ -z "${AWS_ACCOUNT_ID:-}" ]]; then
+            echo "AWS_ACCOUNT_ID is not set; proceeding with the account authorized by AWS_DEPLOY_ROLE_ARN."
+          fi
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Package Lambda artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt -t /tmp/techpulse-lambda
+          cp -R backend/app /tmp/techpulse-lambda/app
+          mkdir -p infrastructure/terraform/dist
+          (cd /tmp/techpulse-lambda && zip -qr "$GITHUB_WORKSPACE/infrastructure/terraform/dist/api.zip" .)
+          cp infrastructure/terraform/dist/api.zip infrastructure/terraform/dist/workers.zip
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          for name in ("api.zip", "workers.zip"):
+              path = Path("infrastructure/terraform/dist") / name
+              with zipfile.ZipFile(path) as archive:
+                  names = set(archive.namelist())
+                  required = {"app/handlers/api.py", "app/handlers/dispatch.py",
+                              "app/handlers/ingest.py", "app/handlers/analyze.py",
+                              "app/handlers/notify.py"}
+                  missing = required - names
+                  if missing:
+                      raise SystemExit(f"{path} is missing handler modules: {sorted(missing)}")
+              print(f"Validated {path} ({path.stat().st_size} bytes)")
+          PY
+
+      - name: Bootstrap encrypted remote Terraform state
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          STATE_BUCKET="techpulse-tfstate-${ACCOUNT_ID}-${AWS_REGION}"
+          if ! aws s3api head-bucket --bucket "$STATE_BUCKET" 2>/dev/null; then
+            if [[ "$AWS_REGION" == "us-east-1" ]]; then
+              aws s3api create-bucket --bucket "$STATE_BUCKET" --region "$AWS_REGION"
+            else
+              aws s3api create-bucket --bucket "$STATE_BUCKET" --region "$AWS_REGION" \
+                --create-bucket-configuration "LocationConstraint=$AWS_REGION"
+            fi
+          fi
+          aws s3api put-public-access-block --bucket "$STATE_BUCKET" --public-access-block-configuration \
+            BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+          aws s3api put-bucket-versioning --bucket "$STATE_BUCKET" --versioning-configuration Status=Enabled
+          aws s3api put-bucket-encryption --bucket "$STATE_BUCKET" --server-side-encryption-configuration \
+            '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+          echo "TF_STATE_BUCKET=$STATE_BUCKET" >> "$GITHUB_ENV"
+
+      - name: Initialize Terraform with remote state
+        working-directory: infrastructure/terraform
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=techpulse/${{ inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+
+      - name: Validate Terraform
+        working-directory: infrastructure/terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform validate
+
+      - name: Create Terraform plan
+        working-directory: infrastructure/terraform
+        run: terraform plan -out=tfplan
+
+      - name: Upload Terraform plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: techpulse-${{ inputs.environment }}-terraform-plan
+          path: infrastructure/terraform/tfplan
+          if-no-files-found: error
+          retention-days: 5
+
+      - name: Stop after plan
+        if: inputs.action == 'plan'
+        run: |
+          echo "Plan created; no TechPulse application infrastructure has been applied by this run."
+          echo "Review the techpulse-${{ inputs.environment }}-terraform-plan artifact and run workflow_dispatch with action=apply when ready."
+
+      - name: Apply Terraform
+        if: inputs.action == 'apply'
+        working-directory: infrastructure/terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Update Lambda code from built artifacts
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for function in api dispatch ingest analyze notify; do
+            aws lambda update-function-code \
+              --function-name "techpulse-${{ inputs.environment }}-$function" \
+              --zip-file "fileb://infrastructure/terraform/dist/$([[ "$function" == "api" ]] && echo api.zip || echo workers.zip)" \
+              --publish >/dev/null
+            aws lambda wait function-updated \
+              --function-name "techpulse-${{ inputs.environment }}-$function"
+            echo "Published code for $function"
+          done
+
+      - name: Build frontend using deployed endpoints
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_URL="$(terraform -chdir=infrastructure/terraform output -raw api_endpoint)"
+          FRONTEND_URL="$(terraform -chdir=infrastructure/terraform output -raw frontend_url)"
+          COGNITO_DOMAIN="$(terraform -chdir=infrastructure/terraform output -raw cognito_hosted_ui_url)"
+          COGNITO_CLIENT="$(terraform -chdir=infrastructure/terraform output -raw cognito_client_id)"
+          npm --prefix frontend ci
+          VITE_API_BASE_URL="$API_URL" \
+          VITE_COGNITO_HOSTED_UI_URL="$COGNITO_DOMAIN" \
+          VITE_COGNITO_CLIENT_ID="$COGNITO_CLIENT" \
+          VITE_COGNITO_REDIRECT_URI="$FRONTEND_URL/" \
+          VITE_COGNITO_LOGOUT_URI="$FRONTEND_URL/" \
+            npm --prefix frontend run build
+          echo "FRONTEND_URL=$FRONTEND_URL" >> "$GITHUB_ENV"
+
+      - name: Publish frontend assets
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUCKET="$(terraform -chdir=infrastructure/terraform output -raw frontend_bucket_name)"
+          DIST_ID="$(terraform -chdir=infrastructure/terraform output -raw cloudfront_distribution_id)"
+          aws s3 sync frontend/dist/ "s3://$BUCKET/" --delete
+          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
+          echo "TechPulse frontend: $FRONTEND_URL"
+
+      - name: Verify API health
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_URL="$(terraform -chdir=infrastructure/terraform output -raw api_endpoint)"
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error "$API_URL/health"; then
+              echo
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Health check failed; inspect API Gateway and Lambda CloudWatch logs." >&2
+          exit 1
