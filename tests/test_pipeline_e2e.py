@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock
 
 from app.handlers import analyze as analyze_handler
