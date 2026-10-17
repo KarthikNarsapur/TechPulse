@@ -1,0 +1,70 @@
+# This is a starting registry. A source is not production-ready until its URL,
+# response format, timestamps, pagination, and stable identity have been tested.
+sources:
+  - source_id: aws.whats_new
+    vendor: aws
+    technology: aws
+    source_type: rss
+    url: https://aws.amazon.com/new/feed/
+    poll_interval_minutes: 30
+    enabled: false
+    trust_level: official
+
+  - source_id: azure.updates
+    vendor: microsoft
+    technology: azure
+    source_type: rss
+    url: https://azure.microsoft.com/en-us/updates/feed/
+    poll_interval_minutes: 30
+    enabled: false
+    trust_level: official
+
+  - source_id: gcp.release_notes
+    vendor: google
+    technology: gcp
+    source_type: rss
+    url: https://cloud.google.com/feeds/gcp-release-notes.xml
+    poll_interval_minutes: 30
+    enabled: false
+    trust_level: official
+
+  - source_id: kubernetes.releases
+    vendor: kubernetes
+    technology: kubernetes
+    source_type: github_releases
+    url: https://api.github.com/repos/kubernetes/kubernetes/releases
+    repository: kubernetes/kubernetes
+    poll_interval_minutes: 60
+    include_prereleases: false
+    enabled: true
+    trust_level: official
+
+  - source_id: terraform.cli_releases
+    vendor: hashicorp
+    technology: terraform
+    source_type: github_releases
+    url: https://api.github.com/repos/hashicorp/terraform/releases
+    repository: hashicorp/terraform
+    poll_interval_minutes: 60
+    include_prereleases: false
+    enabled: true
+    trust_level: official
+
+  - source_id: gitlab.release_notes
+    vendor: gitlab
+    technology: gitlab
+    source_type: rss
+    url: https://docs.gitlab.com/releases/all-releases.xml
+    poll_interval_minutes: 60
+    enabled: true
+    trust_level: official
+
+# Long-tail examples; add only after verifying repository ownership and release activity.
+# - source_id: helm.releases
+#   vendor: helm
+#   technology: helm
+#   source_type: github_releases
+#   url: https://api.github.com/repos/helm/helm/releases
+#   repository: helm/helm
+#   poll_interval_minutes: 60
+#   enabled: false
