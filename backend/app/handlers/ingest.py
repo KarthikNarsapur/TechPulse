@@ -15,12 +15,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def _queue_url() -> str | None:
-    return os.getenv("TECHPULSE_ANALYSIS_QUEUE_URL")
-
-
 def _load_registry() -> list[SourceConfig]:
-    """Prefer persisted source configuration; YAML is the local bootstrap fallback."""
     table_name = os.getenv("TECHPULSE_SOURCES_TABLE")
     if table_name:
         try:
@@ -33,8 +28,9 @@ def _load_registry() -> list[SourceConfig]:
 
 
 def _enqueue_analysis(update_id: str, content_hash: str, source_id: str) -> None:
-    queue_url = _queue_url()
+    queue_url = os.getenv("TECHPULSE_ANALYSIS_QUEUE_URL")
     if not queue_url:
+        logger.warning("Analysis queue URL missing; update stored without analysis enqueue")
         return
     boto3.client("sqs", region_name=os.getenv("AWS_REGION", "ap-south-1")).send_message(
         QueueUrl=queue_url,
@@ -47,19 +43,22 @@ def _enqueue_analysis(update_id: str, content_hash: str, source_id: str) -> None
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """Process EventBridge source requests or SQS source jobs."""
     is_sqs = bool(event.get("Records"))
     source_jobs: dict[str, str] = {}
+
     if is_sqs:
         for record in event.get("Records", []):
+            message_id = str(record.get("messageId", ""))
             body = record.get("body", "{}")
             try:
                 payload = json.loads(body) if isinstance(body, str) else body
             except json.JSONDecodeError:
-                source_jobs[str(record.get("messageId", ""))] = ""
+                source_jobs[message_id] = ""
                 continue
             if isinstance(payload, dict) and payload.get("source_id"):
-                source_jobs[str(record.get("messageId", payload["source_id"]))] = str(payload["source_id"])
+                source_jobs[message_id] = str(payload["source_id"])
+            else:
+                source_jobs[message_id] = ""
     elif event.get("source_id"):
         source_jobs["direct"] = str(event["source_id"])
 
@@ -68,31 +67,37 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     selected = registry if not is_sqs and not source_jobs else [
         by_id[source_id] for source_id in source_jobs.values() if source_id in by_id
     ]
+    failed_ids: set[str] = {
+        message_id for message_id, source_id in source_jobs.items() if not source_id or source_id not in by_id
+    }
 
     store = UpdateStore()
-    failed_ids: set[str] = set()
-    source_count = 0
+    sources_processed = 0
     new_count = 0
     for source in selected:
-        source_count += 1
+        sources_processed += 1
+        related_message_ids = [
+            message_id for message_id, source_id in source_jobs.items() if source_id == source.source_id
+        ]
         try:
             updates = fetch_source(source)
+            source_new = 0
             for update in updates:
                 if store.put_update_if_new(update):
-                    new_count += 1
+                    source_new += 1
                     _enqueue_analysis(update.update_id, update.content_hash, update.source_id)
+            new_count += source_new
             logger.info(json.dumps({
                 "event": "source_poll_succeeded",
                 "source_id": source.source_id,
                 "fetched": len(updates),
+                "new": source_new,
             }))
-        except Exception as exc:  # noqa: BLE001 - queue retry is responsible for transient failures
+        except Exception:  # noqa: BLE001 - let SQS retry transient source failure
             logger.exception("Source poll failed: %s", source.source_id)
-            for message_id, source_id in source_jobs.items():
-                if source_id == source.source_id:
-                    failed_ids.add(message_id)
+            failed_ids.update(related_message_ids)
 
-    failures = [{"itemIdentifier": message_id} for message_id in failed_ids]
+    failures = [{"itemIdentifier": message_id} for message_id in sorted(failed_ids)]
     if is_sqs:
-        return {"batchItemFailures": failures, "sources_checked": source_count, "new_updates": new_count}
-    return {"sources_checked": source_count, "new_updates": new_count, "failures": failures}
+        return {"batchItemFailures": failures, "sources_checked": sources_processed, "new_updates": new_count}
+    return {"sources_checked": sources_processed, "new_updates": new_count, "failures": failures}
