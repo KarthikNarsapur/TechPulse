@@ -14,23 +14,23 @@ data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  name = "${var.project_name}-${var.environment}"
+  name                  = "${var.project_name}-${var.environment}"
   cognito_domain_prefix = var.cognito_domain_prefix != "" ? var.cognito_domain_prefix : "${var.project_name}-${var.environment}-${data.aws_caller_identity.current.account_id}"
   common_environment = {
-    TECHPULSE_ENVIRONMENT    = var.environment
-    TECHPULSE_AWS_REGION     = var.aws_region
-    TECHPULSE_UPDATES_TABLE  = aws_dynamodb_table.updates.name
-    TECHPULSE_SOURCES_TABLE  = aws_dynamodb_table.sources.name
-    TECHPULSE_POLL_STATUS_TABLE = aws_dynamodb_table.poll_status.name
-    TECHPULSE_ANALYSES_TABLE = aws_dynamodb_table.analyses.name
-    TECHPULSE_DELIVERIES_TABLE = aws_dynamodb_table.deliveries.name
-    TECHPULSE_SUBSCRIPTIONS_TABLE = aws_dynamodb_table.subscriptions.name
+    TECHPULSE_ENVIRONMENT             = var.environment
+    TECHPULSE_AWS_REGION              = var.aws_region
+    TECHPULSE_UPDATES_TABLE           = aws_dynamodb_table.updates.name
+    TECHPULSE_SOURCES_TABLE           = aws_dynamodb_table.sources.name
+    TECHPULSE_POLL_STATUS_TABLE       = aws_dynamodb_table.poll_status.name
+    TECHPULSE_ANALYSES_TABLE          = aws_dynamodb_table.analyses.name
+    TECHPULSE_DELIVERIES_TABLE        = aws_dynamodb_table.deliveries.name
+    TECHPULSE_SUBSCRIPTIONS_TABLE     = aws_dynamodb_table.subscriptions.name
     TECHPULSE_SUBSCRIPTION_TECH_INDEX = "technology-index"
-    TECHPULSE_SES_FROM_ADDRESS = var.ses_from_address
-    TECHPULSE_UPDATE_INDEX   = "technology-published-index"
-    TECHPULSE_MODEL_ID      = var.ai_model_id
-    TECHPULSE_CORS_ORIGINS  = join(",", concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
-    TECHPULSE_ANALYSIS_QUEUE_URL = aws_sqs_queue.analysis.url
+    TECHPULSE_SES_FROM_ADDRESS        = var.ses_from_address
+    TECHPULSE_UPDATE_INDEX            = "technology-published-index"
+    TECHPULSE_MODEL_ID                = var.ai_model_id
+    TECHPULSE_CORS_ORIGINS            = join(",", concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
+    TECHPULSE_ANALYSIS_QUEUE_URL      = aws_sqs_queue.analysis.url
     TECHPULSE_NOTIFICATIONS_QUEUE_URL = aws_sqs_queue.notifications.url
   }
 }
