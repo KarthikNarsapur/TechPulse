@@ -4,15 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Plan changes first; choose apply only after reviewing the plan artifact."
+        description: "Choose plan, apply a reviewed plan, or destroy an environment."
         required: true
         type: choice
         options:
           - plan
           - apply
+          - destroy
         default: plan
       plan_run_id:
         description: "Required for apply: GitHub Actions run ID of the reviewed plan run (visible in its URL). Leave blank for plan."
+        required: false
+        type: string
+        default: ""
+      confirm_destroy:
+        description: "Type DESTROY to confirm deletion of the selected environment."
         required: false
         type: string
         default: ""
@@ -150,6 +156,22 @@ jobs:
         run: |
           terraform fmt -check -recursive
           terraform validate
+
+      - name: Validate destroy confirmation
+        if: inputs.action == 'destroy'
+        shell: bash
+        env:
+          CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+        run: |
+          if [[ "$CONFIRM_DESTROY" != "DESTROY" ]]; then
+            echo "Destroy cancelled: enter DESTROY to confirm deletion of the selected environment." >&2
+            exit 1
+          fi
+
+      - name: Destroy Terraform infrastructure
+        if: inputs.action == 'destroy'
+        working-directory: infrastructure/terraform
+        run: terraform destroy -input=false -auto-approve
 
       - name: Create Terraform plan
         if: inputs.action == 'plan'
