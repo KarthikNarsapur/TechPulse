@@ -29,16 +29,11 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, int]:
     sqs = boto3.client("sqs", region_name=os.getenv("AWS_REGION", "ap-south-1"))
     enqueued = 0
     for source in _sources():
-        if not source.get("enabled", True):
-            continue
-        sqs.send_message(
-            QueueUrl=queue_url,
-            MessageBody=json.dumps({"source_id": source["source_id"]}),
-            MessageGroupId=source["source_id"] if queue_url.endswith(".fifo") else None,
-        ) if queue_url.endswith(".fifo") else sqs.send_message(
-            QueueUrl=queue_url,
-            MessageBody=json.dumps({"source_id": source["source_id"]}),
-        )
-        enqueued += 1
+        if source.get("enabled", True):
+            sqs.send_message(
+                QueueUrl=queue_url,
+                MessageBody=json.dumps({"source_id": source["source_id"]}),
+            )
+            enqueued += 1
     logger.info(json.dumps({"event": "poll_dispatch_complete", "sources_enqueued": enqueued}))
     return {"sources_enqueued": enqueued}
