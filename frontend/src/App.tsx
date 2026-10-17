@@ -4,7 +4,7 @@ import {
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
   Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
-import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, saveSubscription, removeSubscription, type SourcePollStatus, type Subscription, type Technology, type Update } from "./api";
+import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 const fallbackUpdates: Update[] = [
@@ -29,6 +29,8 @@ export default function App() {
   const [updates, setUpdates] = useState<Update[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [sourceStatuses, setSourceStatuses] = useState<SourcePollStatus[]>([]);
+  const [userStates, setUserStates] = useState<UserUpdateState[]>([]);
+  const [userStateMessage, setUserStateMessage] = useState("");
   const [sourceStatusMessage, setSourceStatusMessage] = useState("");
   const [subscriptionBusy, setSubscriptionBusy] = useState<string | null>(null);
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
@@ -117,6 +119,36 @@ export default function App() {
       });
     return () => { cancelled = true; };
   }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") {
+      setUserStates([]);
+      setUserStateMessage("");
+      return;
+    }
+    let cancelled = false;
+    getUserState()
+      .then((items) => {
+        if (!cancelled) {
+          setUserStates(items);
+          setUserStateMessage("");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setUserStateMessage("Saved/read state could not be loaded.");
+      });
+    return () => { cancelled = true; };
+  }, [authStatus]);
+
+  async function changeUserState(updateId: string, change: { saved?: boolean; read?: boolean }) {
+    setUserStateMessage("");
+    try {
+      const updated = await saveUserState(updateId, change);
+      setUserStates((items) => [...items.filter((item) => item.update_id !== updateId), updated]);
+    } catch (cause: unknown) {
+      setUserStateMessage(cause instanceof Error ? cause.message : "Saved/read state could not be updated.");
+    }
+  }
 
   async function toggleSubscription(technologyId: string) {
     const existing = subscriptions.find((item) => item.technology_id === technologyId);
@@ -277,6 +309,32 @@ export default function App() {
             )}
           </section>
 
+          <section className="source-health-panel" id="saved" aria-label="Saved updates">
+            <div className="subscription-heading">
+              <div><div className="eyebrow muted">YOUR LIBRARY</div><h2>Saved updates</h2></div>
+              <span className="subscription-count">{userStates.filter((item) => item.saved).length} saved</span>
+            </div>
+            {userStateMessage && <p className="subscription-message" role="status">{userStateMessage}</p>}
+            {userStates.filter((item) => item.saved).length === 0 ? (
+              <p className="subscription-hint">Save an update from the feed to keep it in your personal library.</p>
+            ) : (
+              <div className="source-status-list">
+                {userStates.filter((item) => item.saved).map((state) => {
+                  const update = updates.find((item) => item.update_id === state.update_id);
+                  return (
+                    <div className="source-status-row" key={state.update_id}>
+                      <Bookmark size={15} />
+                      <div className="source-status-copy">
+                        <strong>{update?.title ?? state.update_id}</strong>
+                        <small>{update ? update.technology : "Saved update"}{state.read ? " · Read" : " · Unread"}</small>
+                      </div>
+                      {update && <a className="hero-link" href={update.canonical_url} target="_blank" rel="noreferrer">Open source <ArrowUpRight size={14} /></a>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
           <section className="feed-section">
             <div className="section-heading">
               <div><div className="eyebrow muted">YOUR FEED</div><h2>Latest updates <span className="subtle-count">{visibleUpdates.length}</span></h2></div>
@@ -330,7 +388,23 @@ export default function App() {
                     <div className="update-meta"><span>{update.technology}</span><span className="meta-dot">•</span><span>{update.category}</span><span className="meta-dot">•</span><time>{new Date(update.published_at ?? Date.now()).toLocaleDateString()}</time></div>
                     <h3>{update.title}</h3>
                     <p>{update.summary}</p>
-                    <div className="update-footer"><span className={`priority priority-${update.priority}`}>{priorityLabel(update.priority)} priority</span><span className="verified-label"><ShieldCheck size={13} /> Source linked</span></div>
+                    <div className="update-footer">
+                      <span className={`priority priority-${update.priority}`}>{priorityLabel(update.priority)} priority</span>
+                      <span className="verified-label"><ShieldCheck size={13} /> Source linked</span>
+                      {authStatus === "authenticated" && (() => {
+                        const state = userStates.find((item) => item.update_id === update.update_id);
+                        return (
+                          <>
+                            <button className={state?.saved ? "update-state-button active" : "update-state-button"} onClick={() => { void changeUserState(update.update_id, { saved: !state?.saved }); }} aria-pressed={Boolean(state?.saved)}>
+                              <Bookmark size={13} /> {state?.saved ? "Saved" : "Save"}
+                            </button>
+                            <button className={state?.read ? "update-state-button active" : "update-state-button"} onClick={() => { void changeUserState(update.update_id, { read: !state?.read }); }} aria-pressed={Boolean(state?.read)}>
+                              {state?.read ? "Read" : "Mark read"}
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                   <a className="open-update" href={update.canonical_url} target="_blank" rel="noreferrer" aria-label="Open original announcement"><ArrowUpRight size={17} /></a>
                 </article>
