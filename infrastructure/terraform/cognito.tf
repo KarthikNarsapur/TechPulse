@@ -142,3 +142,19 @@ resource "aws_apigatewayv2_route" "source_status" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
+resource "aws_apigatewayv2_route" "user_state_list" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "GET /api/v1/user-state"
+  target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "user_state_put" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "PUT /api/v1/user-state/{update_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
