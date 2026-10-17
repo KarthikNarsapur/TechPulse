@@ -28,7 +28,8 @@
 ## AWS
 
 - Use separate Lambda roles with least-privilege access.
-- Keep secrets in Secrets Manager; do not commit tokens or webhook URLs.
+- Keep secrets in Secrets Manager; do not commit tokens or webhook URLs. Chat subscription records must contain a TechPulse secret ID, not a webhook URL.
+- The notification worker permits only approved HTTPS Slack/Teams webhook host suffixes, rejects redirects, and restricts secret reads to the environment's `techpulse-<environment>-notifications-*` namespace.
 - Enable encryption in transit and at rest.
 - Configure CloudWatch alarms for failures, queue age, and dead-letter messages.
 - Use Terraform plans and approvals before production deployment.
