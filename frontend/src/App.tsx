@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity, ArrowUpRight, Bell, Bookmark, Boxes, ChevronDown,
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
-  Settings2, ShieldCheck, Sparkles, Workflow,
+  Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
 import { getTechnologies, getUpdates, type Technology, type Update } from "./api";
+import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 const fallbackUpdates: Update[] = [
   {
@@ -30,9 +31,36 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "preview" | "login_required" | "config_error">("checking");
+  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
+    if (!isRemoteApiConfigured()) {
+      setAuthStatus("preview");
+      return () => { cancelled = true; };
+    }
+    if (!isAuthConfigured()) {
+      setAuthStatus("config_error");
+      return () => { cancelled = true; };
+    }
+    finishLoginCallback()
+      .then((authenticated) => {
+        if (!cancelled) setAuthStatus(authenticated ? "authenticated" : "login_required");
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setAuthError(cause instanceof Error ? cause.message : "Sign-in could not be completed.");
+          setAuthStatus("login_required");
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" && authStatus !== "preview") return;
+    let cancelled = false;
+    setLoading(true);
     getTechnologies()
       .then((technologyList) => {
         if (!cancelled) setTechnologies(technologyList);
@@ -51,7 +79,7 @@ export default function App() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [selected]);
+  }, [selected, authStatus]);
 
   const visibleUpdates = useMemo(() => {
     const dataset = updates.length > 0 ? updates : fallbackUpdates;
@@ -62,6 +90,24 @@ export default function App() {
       return technologyMatches && searchMatches;
     });
   }, [updates, selected, search]);
+
+  if (authStatus === "checking") {
+    return <AuthScreen title="Opening TechPulse" subtitle="Checking the sign-in session…" />;
+  }
+  if (authStatus === "config_error") {
+    return <AuthScreen title="TechPulse needs configuration" subtitle="Set the API URL and Cognito Hosted UI values for the deployed frontend." />;
+  }
+  if (authStatus === "login_required") {
+    return (
+      <AuthScreen
+        title="Your engineering radar awaits"
+        subtitle="Sign in to view your organization's Cloud & DevOps release intelligence."
+        error={authError}
+        actionLabel="Sign in"
+        onAction={() => { void beginLogin().catch((cause: unknown) => setAuthError(cause instanceof Error ? cause.message : "Unable to start sign-in.")); }}
+      />
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -99,7 +145,9 @@ export default function App() {
           <div className="top-actions">
             <div className="status-pill"><span /> Serverless pilot</div>
             <button className="icon-button" aria-label="Notifications"><Bell size={18} /><i /></button>
-            <div className="mini-avatar">KN</div>
+            {authStatus === "authenticated" ? (
+              <button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17} /></button>
+            ) : <div className="mini-avatar">DE</div>}
           </div>
         </header>
 
@@ -176,4 +224,20 @@ export default function App() {
 
 function StatCard({ icon, label, value, detail, color }: { icon: React.ReactNode; label: string; value: string; detail: string; color: string }) {
   return <div className="stat-card"><div className={`stat-icon ${color}`}>{icon}</div><div className="stat-label">{label}</div><div className="stat-value">{value}</div><div className="stat-detail">{detail}</div></div>;
+}
+
+function AuthScreen({ title, subtitle, error, actionLabel, onAction }: { title: string; subtitle: string; error?: string; actionLabel?: string; onAction?: () => void }) {
+  return (
+    <main className="auth-screen">
+      <div className="auth-card">
+        <span className="brand-mark auth-mark"><Activity size={22} /></span>
+        <div className="auth-eyebrow">ENGINEERING INTELLIGENCE</div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+        {error && <div className="auth-error">{error}</div>}
+        {onAction && actionLabel && <button className="auth-button" onClick={onAction}>{actionLabel}</button>}
+        <span className="auth-caption">TechPulse · Cloud & DevOps Release Intelligence</span>
+      </div>
+    </main>
+  );
 }
