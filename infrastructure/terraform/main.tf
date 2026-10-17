@@ -45,10 +45,20 @@ resource "aws_dynamodb_table" "updates" {
     name = "published_key"
     type = "S"
   }
+  attribute {
+    name = "feed_scope"
+    type = "S"
+  }
 
   global_secondary_index {
     name            = "technology-published-index"
     hash_key        = "technology"
+    range_key       = "published_key"
+    projection_type = "ALL"
+  }
+  global_secondary_index {
+    name            = "published-index"
+    hash_key        = "feed_scope"
     range_key       = "published_key"
     projection_type = "ALL"
   }
