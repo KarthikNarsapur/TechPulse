@@ -11,6 +11,7 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+
 data "aws_partition" "current" {}
 
 locals {
@@ -207,6 +208,7 @@ resource "aws_sqs_queue" "ingestion_dlq" {
   message_retention_seconds = 1209600
   sqs_managed_sse_enabled   = true
 }
+
 resource "aws_sqs_queue" "ingestion" {
   name                       = "${local.name}-ingestion"
   visibility_timeout_seconds = 900
@@ -218,11 +220,13 @@ resource "aws_sqs_queue" "ingestion" {
     maxReceiveCount     = 4
   })
 }
+
 resource "aws_sqs_queue" "analysis_dlq" {
   name                      = "${local.name}-analysis-dlq"
   message_retention_seconds = 1209600
   sqs_managed_sse_enabled   = true
 }
+
 resource "aws_sqs_queue" "analysis" {
   name                       = "${local.name}-analysis"
   visibility_timeout_seconds = 180
@@ -234,11 +238,13 @@ resource "aws_sqs_queue" "analysis" {
     maxReceiveCount     = 4
   })
 }
+
 resource "aws_sqs_queue" "notifications_dlq" {
   name                      = "${local.name}-notifications-dlq"
   message_retention_seconds = 1209600
   sqs_managed_sse_enabled   = true
 }
+
 resource "aws_sqs_queue" "notifications" {
   name                       = "${local.name}-notifications"
   visibility_timeout_seconds = 180
@@ -262,10 +268,12 @@ resource "aws_iam_role" "lambda_execution" {
     }]
   })
 }
+
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda_execution.name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
+
 resource "aws_iam_role_policy" "lambda_data" {
   name = "${local.name}-data-access"
   role = aws_iam_role.lambda_execution.id
@@ -289,6 +297,7 @@ resource "aws_iam_role_policy" "lambda_data" {
     ]
   })
 }
+
 resource "aws_iam_role_policy" "lambda_queue_access" {
   name = "${local.name}-queue-access"
   role = aws_iam_role.lambda_execution.id
@@ -308,6 +317,7 @@ resource "aws_iam_role_policy" "lambda_queue_access" {
     ]
   })
 }
+
 resource "aws_iam_role_policy" "lambda_ai_email" {
   name = "${local.name}-ai-email"
   role = aws_iam_role.lambda_execution.id
@@ -434,12 +444,14 @@ resource "aws_lambda_event_source_mapping" "ingest_queue" {
   function_response_types            = ["ReportBatchItemFailures"]
   maximum_batching_window_in_seconds = 5
 }
+
 resource "aws_lambda_event_source_mapping" "analysis_queue" {
   event_source_arn        = aws_sqs_queue.analysis.arn
   function_name           = aws_lambda_function.analyze.arn
   batch_size              = 5
   function_response_types = ["ReportBatchItemFailures"]
 }
+
 resource "aws_lambda_event_source_mapping" "notification_queue" {
   event_source_arn        = aws_sqs_queue.notifications.arn
   function_name           = aws_lambda_function.notify.arn
@@ -450,6 +462,7 @@ resource "aws_lambda_event_source_mapping" "notification_queue" {
 resource "aws_scheduler_schedule_group" "main" {
   name = "${local.name}-schedules"
 }
+
 resource "aws_iam_role" "scheduler" {
   name = "${local.name}-scheduler"
   assume_role_policy = jsonencode({
@@ -461,6 +474,7 @@ resource "aws_iam_role" "scheduler" {
     }]
   })
 }
+
 resource "aws_iam_role_policy" "scheduler_invoke_dispatcher" {
   name = "${local.name}-scheduler-invoke-dispatcher"
   role = aws_iam_role.scheduler.id
@@ -473,6 +487,7 @@ resource "aws_iam_role_policy" "scheduler_invoke_dispatcher" {
     }]
   })
 }
+
 resource "aws_scheduler_schedule" "source_poll" {
   name                         = "${local.name}-source-poll"
   group_name                   = aws_scheduler_schedule_group.main.name
@@ -505,12 +520,14 @@ resource "aws_apigatewayv2_api" "http" {
     max_age       = 3600
   }
 }
+
 resource "aws_apigatewayv2_integration" "api_lambda" {
   api_id                 = aws_apigatewayv2_api.http.id
   integration_type       = "AWS_PROXY"
   integration_uri        = aws_lambda_function.api.invoke_arn
   payload_format_version = "2.0"
 }
+
 resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowApiGatewayInvoke"
   action        = "lambda:InvokeFunction"
