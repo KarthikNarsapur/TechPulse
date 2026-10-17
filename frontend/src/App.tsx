@@ -33,14 +33,19 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getTechnologies(), getUpdates(selected === "all" ? undefined : selected)])
-      .then(([technologyList, updateList]) => {
-        if (cancelled) return;
-        setTechnologies(technologyList);
-        setUpdates(updateList);
+    getTechnologies()
+      .then((technologyList) => {
+        if (!cancelled) setTechnologies(technologyList);
       })
       .catch(() => {
         if (!cancelled) setError("API unavailable. Showing the preview state.");
+      });
+    getUpdates(selected === "all" ? undefined : selected)
+      .then((updateList) => {
+        if (!cancelled) setUpdates(updateList);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Could not load updates for this filter.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
