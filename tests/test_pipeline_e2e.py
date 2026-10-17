@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from app.handlers import analyze as analyze_handler
