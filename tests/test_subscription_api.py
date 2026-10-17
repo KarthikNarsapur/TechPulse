@@ -162,3 +162,67 @@ def test_verified_email_rejects_unverified_cognito_attribute(monkeypatch) -> Non
     })
 
     assert _verified_email_from_access_token(request) is None
+
+
+def test_principal_ignores_unverified_email_claim() -> None:
+    from starlette.requests import Request
+
+    from app.api import _principal
+
+    request = Request({
+        "type": "http",
+        "method": "GET",
+        "path": "/api/v1/subscriptions",
+        "headers": [],
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("test", 1),
+        "scheme": "http",
+        "aws.event": {
+            "requestContext": {
+                "authorizer": {
+                    "jwt": {
+                        "claims": {
+                            "sub": "cognito-sub-123",
+                            "email": "unverified@example.com",
+                            "email_verified": "false",
+                        }
+                    }
+                }
+            }
+        },
+    })
+
+    assert _principal(request) == ("cognito-sub-123", None)
+
+
+def test_principal_accepts_verified_email_claim() -> None:
+    from starlette.requests import Request
+
+    from app.api import _principal
+
+    request = Request({
+        "type": "http",
+        "method": "GET",
+        "path": "/api/v1/subscriptions",
+        "headers": [],
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("test", 1),
+        "scheme": "http",
+        "aws.event": {
+            "requestContext": {
+                "authorizer": {
+                    "jwt": {
+                        "claims": {
+                            "sub": "cognito-sub-123",
+                            "email": "verified@example.com",
+                            "email_verified": "true",
+                        }
+                    }
+                }
+            }
+        },
+    })
+
+    assert _principal(request) == ("cognito-sub-123", "verified@example.com")
