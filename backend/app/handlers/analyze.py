@@ -12,7 +12,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
-from app.models import AnalysisResult, Priority, UpdateCategory, deterministic_priority
+from app.models import AnalysisResult, UpdateCategory, deterministic_priority
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
