@@ -39,6 +39,17 @@ def _enqueue_analysis(update_id: str, content_hash: str, source_id: str) -> None
             "content_hash": content_hash,
             "source_id": source_id,
         }),
+        MessageDeduplicationId=f"{update_id}:{content_hash}",
+        MessageGroupId=source_id,
+    ) if os.getenv("TECHPULSE_ANALYSIS_FIFO_QUEUE", "false").lower() == "true" else boto3.client(
+        "sqs", region_name=os.getenv("AWS_REGION", "ap-south-1")
+    ).send_message(
+        QueueUrl=queue_url,
+        MessageBody=json.dumps({
+            "update_id": update_id,
+            "content_hash": content_hash,
+            "source_id": source_id,
+        }),
     )
 
 
@@ -74,6 +85,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     store = UpdateStore()
     sources_processed = 0
     new_count = 0
+    changed_count = 0
     for source in selected:
         sources_processed += 1
         related_message_ids = [
@@ -82,16 +94,23 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         try:
             updates = fetch_source(source)
             source_new = 0
+            source_changed = 0
             for update in updates:
-                if store.put_update_if_new(update):
+                outcome = store.upsert_revision(update)
+                if outcome == "new":
                     source_new += 1
                     _enqueue_analysis(update.update_id, update.content_hash, update.source_id)
+                elif outcome == "changed":
+                    source_changed += 1
+                    _enqueue_analysis(update.update_id, update.content_hash, update.source_id)
             new_count += source_new
+            changed_count += source_changed
             logger.info(json.dumps({
                 "event": "source_poll_succeeded",
                 "source_id": source.source_id,
                 "fetched": len(updates),
                 "new": source_new,
+                "changed": source_changed,
             }))
         except Exception:  # noqa: BLE001 - let SQS retry transient source failure
             logger.exception("Source poll failed: %s", source.source_id)
@@ -99,5 +118,15 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     failures = [{"itemIdentifier": message_id} for message_id in sorted(failed_ids)]
     if is_sqs:
-        return {"batchItemFailures": failures, "sources_checked": sources_processed, "new_updates": new_count}
-    return {"sources_checked": sources_processed, "new_updates": new_count, "failures": failures}
+        return {
+            "batchItemFailures": failures,
+            "sources_checked": sources_processed,
+            "new_updates": new_count,
+            "changed_updates": changed_count,
+        }
+    return {
+        "sources_checked": sources_processed,
+        "new_updates": new_count,
+        "changed_updates": changed_count,
+        "failures": failures,
+    }
