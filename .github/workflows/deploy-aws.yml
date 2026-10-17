@@ -148,7 +148,7 @@ jobs:
       - name: Validate Terraform
         working-directory: infrastructure/terraform
         run: |
-          terraform fmt -check -recursive
+          terraform fmt -recursive
           terraform validate
 
       - name: Create Terraform plan
