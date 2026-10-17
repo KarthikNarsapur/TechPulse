@@ -22,6 +22,7 @@ locals {
     TECHPULSE_UPDATES_TABLE           = aws_dynamodb_table.updates.name
     TECHPULSE_SOURCES_TABLE           = aws_dynamodb_table.sources.name
     TECHPULSE_POLL_STATUS_TABLE       = aws_dynamodb_table.poll_status.name
+    TECHPULSE_USER_STATE_TABLE        = aws_dynamodb_table.user_state.name
     TECHPULSE_ANALYSES_TABLE          = aws_dynamodb_table.analyses.name
     TECHPULSE_DELIVERIES_TABLE        = aws_dynamodb_table.deliveries.name
     TECHPULSE_SUBSCRIPTIONS_TABLE     = aws_dynamodb_table.subscriptions.name
@@ -163,6 +164,29 @@ resource "aws_dynamodb_table" "subscriptions" {
   }
 }
 
+
+resource "aws_dynamodb_table" "user_state" {
+  name         = "${local.name}-user-state"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user_id"
+  range_key    = "update_id"
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+  attribute {
+    name = "update_id"
+    type = "S"
+  }
+  point_in_time_recovery {
+    enabled = var.environment == "prod"
+  }
+  server_side_encryption {
+    enabled = true
+  }
+}
+
 resource "aws_dynamodb_table" "deliveries" {
   name         = "${local.name}-deliveries"
   billing_mode = "PAY_PER_REQUEST"
@@ -256,7 +280,7 @@ resource "aws_iam_role_policy" "lambda_data" {
         Resource = [
           aws_dynamodb_table.updates.arn, "${aws_dynamodb_table.updates.arn}/index/*",
           aws_dynamodb_table.sources.arn, aws_dynamodb_table.poll_status.arn, aws_dynamodb_table.analyses.arn,
-          aws_dynamodb_table.subscriptions.arn, aws_dynamodb_table.deliveries.arn
+          aws_dynamodb_table.subscriptions.arn, aws_dynamodb_table.user_state.arn, aws_dynamodb_table.deliveries.arn
         ]
       },
       {
