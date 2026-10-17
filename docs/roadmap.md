@@ -13,14 +13,14 @@
 - [x] Add canonical URL revision detection and enqueue re-analysis when an announcement's content hash changes.
 - [ ] Validate live payloads for every initial source before enabling it.
 - [ ] Archive prior source content in revision history (current record carries a revision counter).
-- [ ] Complete an end-to-end local/staging test using a fixture feed and a fake AI provider.
+- [x] Add a deterministic local integration test from fixture RSS feed through persistence and analysis using a fake provider (live staging run remains pending).
 - [x] Add subscription-based notification fan-out after successful AI analysis.
 
 ## Increment 2 — Complete the first useful vertical slice
 
 - [x] Persist per-source poll attempts, start/completion timestamps, outcomes, item counts, and sanitized error types in DynamoDB; expose authenticated status API and dashboard panel.
 - [x] Add automated tests for Lambda ingestion behavior on new, changed, unchanged, and failed source polls.
-- [ ] Implement a provider interface for AI and add mocked-provider tests.
+- [x] Implement an injectable structured AI provider interface and mocked-provider contract tests.
 - [x] Implement user-scoped technology subscription list/create/delete APIs behind the Cognito JWT authorizer.
 - [x] Add dashboard controls to subscribe/unsubscribe from email alerts per technology.
 - [x] Implement user-scoped read/saved update state APIs and dashboard controls.
