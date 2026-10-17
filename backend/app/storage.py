@@ -210,3 +210,43 @@ class SourceStore:
 
     def upsert(self, item: dict[str, Any]) -> None:
         self.table.put_item(Item=item)
+
+
+
+class SubscriptionStore:
+    """Per-user technology subscriptions with indexed notification fan-out."""
+
+    def __init__(self, table_name: str | None = None, *, region_name: str | None = None) -> None:
+        self.table_name = table_name or os.getenv("TECHPULSE_SUBSCRIPTIONS_TABLE", "techpulse-dev-subscriptions")
+        self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
+        self._table: Any | None = None
+
+    @property
+    def table(self) -> Any:
+        if self._table is None:
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+        return self._table
+
+    def list_for_user(self, user_id: str) -> list[dict[str, Any]]:
+        response = self.table.query(KeyConditionExpression=Key("user_id").eq(user_id))
+        items = list(response.get("Items", []))
+        while response.get("LastEvaluatedKey"):
+            response = self.table.query(
+                KeyConditionExpression=Key("user_id").eq(user_id),
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+            )
+            items.extend(response.get("Items", []))
+        return items
+
+    def get(self, user_id: str, technology_id: str) -> dict[str, Any] | None:
+        response = self.table.get_item(
+            Key={"user_id": user_id, "technology_id": technology_id},
+            ConsistentRead=True,
+        )
+        return response.get("Item")
+
+    def put(self, item: dict[str, Any]) -> None:
+        self.table.put_item(Item=item)
+
+    def delete(self, user_id: str, technology_id: str) -> None:
+        self.table.delete_item(Key={"user_id": user_id, "technology_id": technology_id})
