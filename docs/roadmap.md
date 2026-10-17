@@ -21,7 +21,8 @@
 - [ ] Make source polling status/checkpoints durable and visible in the admin page.
 - [ ] Add automated tests for Lambda ingestion behavior on new, changed, and unchanged source content.
 - [ ] Implement a provider interface for AI and add mocked-provider tests.
-- [ ] Implement technology subscription management and user read/saved state APIs.
+- [x] Implement user-scoped technology subscription list/create/delete APIs behind the Cognito JWT authorizer.
+- [ ] Implement user read/saved update state APIs.
 - [x] Implement initial notification eligibility by enabled technology subscriptions.
 - [x] Add persisted delivery claims, provider outcomes, retry recovery, and delivery status.
 - [x] Resolve chat webhook references through Secrets Manager and reject raw webhook URLs.
