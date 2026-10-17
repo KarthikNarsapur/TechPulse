@@ -14,16 +14,17 @@
 - [ ] Validate live payloads for every initial source before enabling it.
 - [ ] Archive prior source content in revision history (current record carries a revision counter).
 - [ ] Complete an end-to-end local/staging test using a fixture feed and a fake AI provider.
+- [x] Add subscription-based notification fan-out after successful AI analysis.
 
 ## Increment 2 — Complete the first useful vertical slice
 
 - [ ] Make source polling status/checkpoints durable and visible in the admin page.
 - [ ] Add automated tests for Lambda ingestion behavior on new, changed, and unchanged source content.
 - [ ] Implement a provider interface for AI and add mocked-provider tests.
-- [ ] Implement technology subscriptions and user read/saved state APIs.
-- [ ] Implement an explicit notification eligibility service using subscriptions and team mapping.
-- [ ] Add persisted delivery claims, provider outcomes, retries, and delivery history.
-- [ ] Resolve chat webhook references through Secrets Manager; reject URLs supplied by user-facing API calls.
+- [ ] Implement technology subscription management and user read/saved state APIs.
+- [x] Implement initial notification eligibility by enabled technology subscriptions.
+- [x] Add persisted delivery claims, provider outcomes, retry recovery, and delivery status.
+- [x] Resolve chat webhook references through Secrets Manager and reject raw webhook URLs.
 - [ ] Add digest generation and SES sender configuration checks.
 - [ ] Add a basic admin source-management API, restricted by role.
 
