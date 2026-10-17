@@ -240,3 +240,22 @@ h1 { font: 800 clamp(27px,3vw,37px)/1.18 Manrope, sans-serif; letter-spacing: -1
   .source-health-panel { padding: 16px; }
 }
 
+.update-state-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid var(--line, #e6e9ef);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted, #667085);
+  font-size: 11px;
+  cursor: pointer;
+}
+.update-state-button.active {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+.update-state-button:hover { border-color: #99f6e4; color: #0f766e; }
+
