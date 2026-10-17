@@ -4,25 +4,24 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")/../.." && pwd)"
 TF_DIR="$ROOT_DIR/infrastructure/terraform"
 BUILD_DIR="$TF_DIR/dist"
+API_BUILD="$BUILD_DIR/api"
+WORKER_BUILD="$BUILD_DIR/workers"
 
 rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR/api" "$BUILD_DIR/workers"
+mkdir -p "$API_BUILD" "$WORKER_BUILD"
 
-python3.12 -m pip install --upgrade pip
-python3.12 -m pip install -r "$ROOT_DIR/backend/requirements.txt" -t "$BUILD_DIR/api"
-cp -R "$ROOT_DIR/backend/app" "$BUILD_DIR/api/app"
-cp -R "$ROOT_DIR/backend/app" "$BUILD_DIR/workers/app"
+python3.12 -m pip install -r "$ROOT_DIR/backend/requirements.txt" -t "$API_BUILD"
+cp -R "$ROOT_DIR/backend/app" "$API_BUILD/app"
+cp -R "$ROOT_DIR/backend/app" "$WORKER_BUILD/app"
 
 (
-  cd "$BUILD_DIR/api"
+  cd "$API_BUILD"
   zip -qr "$BUILD_DIR/api.zip" .
 )
 (
-  cd "$BUILD_DIR/workers"
+  cd "$WORKER_BUILD"
   zip -qr "$BUILD_DIR/workers.zip" .
 )
 
-echo "Created:"
-echo "  $BUILD_DIR/api.zip"
-echo "  $BUILD_DIR/workers.zip"
-echo "Note: build dependencies in a Linux-compatible environment matching Lambda's Python 3.12 runtime."
+echo "Created $BUILD_DIR/api.zip and $BUILD_DIR/workers.zip"
+echo "Use a Linux-compatible Python 3.12 build environment for repeatable deployment artifacts."
