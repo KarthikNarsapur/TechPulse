@@ -16,7 +16,7 @@
 3. Ingestion Lambda records a durable per-source poll checkpoint, fetches and normalizes source entries, and stores the outcome, timestamps, counts, and sanitized exception type in a separate DynamoDB table.
 4. The canonical update is conditionally persisted to DynamoDB.
 5. New or materially revised entries are sent to the analysis queue.
-6. Analysis Lambda reuses a cache keyed by content hash, model, and prompt version, or performs one structured LLM call.
+6. Analysis Lambda reuses a cache keyed by content hash, model, and prompt version, or calls the injectable `AnalysisProvider` interface for one structured LLM call. The Bedrock Claude implementation validates its response against the shared Pydantic contract; tests inject a fake provider without cloud access.
 7. Deterministic rules assign priority; enabled technology subscriptions determine recipients.
 8. Analysis queries the subscription technology GSI and enqueues a stable delivery ID per update revision, subscriber, and channel.
 9. Notification Lambda claims each delivery in DynamoDB, sends email or secret-backed chat messages, and records provider outcome. Duplicate queue messages for a sent delivery are acknowledged without resending.
@@ -31,6 +31,7 @@
 - Poll status records intentionally store exception class names rather than exception messages to avoid leaking feed payloads, URLs, or credentials.
 - Keep API, ingestion, analysis, and notification permissions separate.
 - Source content is untrusted input; never follow instructions contained in release notes.
+- Keep model transport behind `AnalysisProvider` so local tests can use deterministic fakes and never invoke Bedrock.
 - Do not mark a source verified until its URL, format, timestamps, identity, and pagination have been tested.
 
 ## Pilot choices
