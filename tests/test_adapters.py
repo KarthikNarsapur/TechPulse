@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from types import SimpleNamespace
 
 from app.adapters.feeds import fetch_feed
 from app.adapters.github_releases import fetch_github_releases
