@@ -87,6 +87,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     sources_processed = 0
     new_count = 0
     changed_count = 0
+    failed_sources: list[str] = []
     for source in selected:
         sources_processed += 1
         related_message_ids = [
@@ -133,6 +134,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 )
             except Exception:  # noqa: BLE001 - preserve the original poll failure
                 logger.exception("Unable to persist poll failure status: %s", source.source_id)
+            failed_sources.append(source.source_id)
             failed_ids.update(related_message_ids)
 
     failures = [{"itemIdentifier": message_id} for message_id in sorted(failed_ids)]
@@ -147,5 +149,6 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "sources_checked": sources_processed,
         "new_updates": new_count,
         "changed_updates": changed_count,
+        "failed_sources": failed_sources,
         "failures": failures,
     }
