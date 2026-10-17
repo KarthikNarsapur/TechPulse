@@ -11,6 +11,7 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$API_BUILD" "$WORKER_BUILD"
 
 python3.12 -m pip install -r "$ROOT_DIR/backend/requirements.txt" -t "$API_BUILD"
+python3.12 -m pip install -r "$ROOT_DIR/backend/requirements.txt" -t "$WORKER_BUILD"
 cp -R "$ROOT_DIR/backend/app" "$API_BUILD/app"
 cp -R "$ROOT_DIR/source-registry" "$API_BUILD/source-registry"
 cp -R "$ROOT_DIR/backend/app" "$WORKER_BUILD/app"
