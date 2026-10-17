@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import boto3
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 from app.models import NormalizedUpdate
@@ -58,7 +59,7 @@ class UpdateStore:
     ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {
             "IndexName": os.getenv("TECHPULSE_UPDATE_INDEX", "technology-published-index"),
-            "KeyConditionExpression": boto3.dynamodb.conditions.Key("technology").eq(technology),
+            "KeyConditionExpression": Key("technology").eq(technology),
             "ScanIndexForward": False,
             "Limit": max(1, min(limit, 100)),
         }
@@ -82,12 +83,11 @@ class SourceStore:
 
     def all_enabled(self) -> list[dict[str, Any]]:
         """Bootstrap-scale scan; replace with a query/index if the registry grows significantly."""
-        response = self.table.scan(FilterExpression="enabled = :yes", ExpressionAttributeValues={":yes": True})
+        response = self.table.scan(FilterExpression=Attr("enabled").eq(True))
         items = list(response.get("Items", []))
         while response.get("LastEvaluatedKey"):
             response = self.table.scan(
-                FilterExpression="enabled = :yes",
-                ExpressionAttributeValues={":yes": True},
+                FilterExpression=Attr("enabled").eq(True),
                 ExclusiveStartKey=response["LastEvaluatedKey"],
             )
             items.extend(response.get("Items", []))
