@@ -48,7 +48,26 @@ class UpdateStore:
         ) + "#" + update.update_id
         item["first_seen_at"] = datetime.now(timezone.utc).isoformat()
         item["analysis_status"] = "pending"
+        item["feed_scope"] = "all"
         return self.put_if_absent(item)
+
+    def query_all(
+        self,
+        *,
+        limit: int = 20,
+        exclusive_start_key: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Query the shared feed without scanning the canonical table."""
+        kwargs: dict[str, Any] = {
+            "IndexName": os.getenv("TECHPULSE_ALL_UPDATES_INDEX", "published-index"),
+            "KeyConditionExpression": Key("feed_scope").eq("all"),
+            "ScanIndexForward": False,
+            "Limit": max(1, min(limit, 100)),
+        }
+        if exclusive_start_key:
+            kwargs["ExclusiveStartKey"] = exclusive_start_key
+        result = self.table.query(**kwargs)
+        return {"items": result.get("Items", []), "last_evaluated_key": result.get("LastEvaluatedKey")}
 
     def query_by_technology(
         self,
