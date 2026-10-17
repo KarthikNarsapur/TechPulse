@@ -34,10 +34,10 @@ resource "aws_cognito_user_pool_client" "web" {
   enable_token_revocation               = true
   explicit_auth_flows                   = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
   allowed_oauth_flows_user_pool_client  = true
-  allowed_oauth_flows                   = ["implicit"]
+  allowed_oauth_flows                   = ["code"]
   allowed_oauth_scopes                  = ["openid", "email", "profile"]
-  callback_urls                         = ["http://localhost:5173/"]
-  logout_urls                           = ["http://localhost:5173/"]
+  callback_urls                         = var.cognito_callback_urls
+  logout_urls                           = var.cognito_logout_urls
   supported_identity_providers          = ["COGNITO"]
   access_token_validity                 = 60
   id_token_validity                     = 60
