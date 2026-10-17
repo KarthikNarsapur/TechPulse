@@ -10,14 +10,15 @@
 - [x] Add API Gateway, Lambda, EventBridge Scheduler, SQS/DLQs, DynamoDB, Cognito, CloudFront, and S3 Terraform.
 - [x] Add a standalone React dashboard shell and Cognito Hosted UI PKCE login.
 - [x] Add backend/frontend/Terraform CI checks.
+- [x] Add canonical URL revision detection and enqueue re-analysis when an announcement's content hash changes.
 - [ ] Validate live payloads for every initial source before enabling it.
-- [ ] Wire canonical update revisions so a changed source item triggers re-analysis.
+- [ ] Archive prior source content in revision history (current record carries a revision counter).
 - [ ] Complete an end-to-end local/staging test using a fixture feed and a fake AI provider.
 
 ## Increment 2 — Complete the first useful vertical slice
 
 - [ ] Make source polling status/checkpoints durable and visible in the admin page.
-- [ ] Finish idempotent handling when an announcement changes after first ingestion.
+- [ ] Add automated tests for Lambda ingestion behavior on new, changed, and unchanged source content.
 - [ ] Implement a provider interface for AI and add mocked-provider tests.
 - [ ] Implement technology subscriptions and user read/saved state APIs.
 - [ ] Implement an explicit notification eligibility service using subscriptions and team mapping.
