@@ -4,7 +4,8 @@
 
 - API Gateway must use a configured JWT authorizer before production rollout.
 - Derive the principal from validated API Gateway JWT claims, not a user ID in the request body.
-- Keep subscription reads and writes scoped to the validated Cognito `sub`; never accept an arbitrary owner ID from the caller.
+- Keep subscription and saved/read-state reads and writes scoped to the validated Cognito `sub`; never accept an arbitrary owner ID from the caller.
+- User state is keyed by the validated principal and canonical update ID; the API checks that an update exists before accepting saved/read changes.
 - Keep administrative source management separate from employee preferences.
 - Add audit records for source changes, policy changes, and manual runs.
 
