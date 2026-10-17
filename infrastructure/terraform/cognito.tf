@@ -25,6 +25,11 @@ resource "aws_cognito_user_pool" "main" {
   }
 }
 
+resource "aws_cognito_user_pool_domain" "main" {
+  domain       = local.cognito_domain_prefix
+  user_pool_id = aws_cognito_user_pool.main.id
+}
+
 resource "aws_cognito_user_pool_client" "web" {
   name         = "${local.name}-web"
   user_pool_id = aws_cognito_user_pool.main.id
@@ -97,4 +102,9 @@ output "cognito_user_pool_id" {
 
 output "cognito_client_id" {
   value = aws_cognito_user_pool_client.web.id
+}
+
+output "cognito_hosted_ui_url" {
+  description = "Cognito hosted UI base URL for the frontend auth code flow."
+  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
 }
