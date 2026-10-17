@@ -4,7 +4,7 @@ import {
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
   Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
-import { getTechnologies, getUpdates, type Technology, type Update } from "./api";
+import { getTechnologies, getUpdates, getSubscriptions, saveSubscription, removeSubscription, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 const fallbackUpdates: Update[] = [
@@ -27,6 +27,9 @@ function priorityLabel(priority: Update["priority"]): string {
 export default function App() {
   const [technologies, setTechnologies] = useState<Technology[]>([]);
   const [updates, setUpdates] = useState<Update[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptionBusy, setSubscriptionBusy] = useState<string | null>(null);
+  const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [selected, setSelected] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -78,8 +81,40 @@ export default function App() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    if (authStatus === "authenticated") {
+      getSubscriptions()
+        .then((items) => {
+          if (!cancelled) setSubscriptions(items);
+        })
+        .catch(() => {
+          if (!cancelled) setSubscriptionMessage("Could not load your subscriptions.");
+        });
+    } else {
+      setSubscriptions([]);
+    }
     return () => { cancelled = true; };
   }, [selected, authStatus]);
+
+  async function toggleSubscription(technologyId: string) {
+    const existing = subscriptions.find((item) => item.technology_id === technologyId);
+    setSubscriptionBusy(technologyId);
+    setSubscriptionMessage("");
+    try {
+      if (existing) {
+        await removeSubscription(technologyId);
+        setSubscriptions((items) => items.filter((item) => item.technology_id !== technologyId));
+        setSubscriptionMessage("Email alerts disabled for this technology.");
+      } else {
+        const created = await saveSubscription(technologyId, "email");
+        setSubscriptions((items) => [...items.filter((item) => item.technology_id !== technologyId), created]);
+        setSubscriptionMessage("Email alerts enabled for this technology.");
+      }
+    } catch (cause: unknown) {
+      setSubscriptionMessage(cause instanceof Error ? cause.message : "Subscription could not be updated.");
+    } finally {
+      setSubscriptionBusy(null);
+    }
+  }
 
   const visibleUpdates = useMemo(() => {
     const dataset = updates.length > 0 ? updates : fallbackUpdates;
@@ -122,7 +157,7 @@ export default function App() {
           <span className="nav-section">DISCOVER</span>
           <a className="nav-link active" href="#updates"><LayoutDashboard size={17} /> Overview <span className="nav-count">01</span></a>
           <a className="nav-link" href="#updates"><Search size={17} /> All updates</a>
-          <a className="nav-link" href="#technologies"><Boxes size={17} /> My technologies</a>
+          <a className="nav-link" href="#my-technologies"><Boxes size={17} /> My technologies</a>
           <a className="nav-link" href="#saved"><Bookmark size={17} /> Saved updates</a>
           <span className="nav-section spaced">YOUR STACK</span>
           {technologies.map((technology) => (
@@ -195,6 +230,37 @@ export default function App() {
               <button className={selected === "all" ? "filter-chip active" : "filter-chip"} onClick={() => setSelected("all")}>All technologies</button>
               {technologies.map((technology) => <button key={technology.id} className={selected === technology.id ? "filter-chip active" : "filter-chip"} onClick={() => setSelected(technology.id)}>{technology.name}</button>)}
             </div>
+            <section className="subscriptions-panel" id="my-technologies">
+              <div className="subscription-heading">
+                <div><div className="eyebrow muted">PERSONAL ALERTS</div><h2>My technology subscriptions</h2></div>
+                <span className="subscription-count">{subscriptions.length} subscribed</span>
+              </div>
+              {authStatus === "authenticated" ? (
+                <div className="subscription-grid">
+                  {technologies.map((technology) => {
+                    const subscription = subscriptions.find((item) => item.technology_id === technology.id);
+                    const busy = subscriptionBusy === technology.id;
+                    return (
+                      <div className="subscription-row" key={technology.id}>
+                        <div className={`subscription-symbol ${technology.id}`}><Boxes size={16} /></div>
+                        <div className="subscription-copy"><strong>{technology.name}</strong><small>{subscription ? `Alerts via ${subscription.channel}` : "No alerts configured"}</small></div>
+                        <button
+                          className={subscription ? "subscription-toggle enabled" : "subscription-toggle"}
+                          onClick={() => { void toggleSubscription(technology.id); }}
+                          disabled={subscriptionBusy !== null}
+                          aria-pressed={Boolean(subscription)}
+                        >
+                          {busy ? "Saving…" : subscription ? "Subscribed" : "Email alerts"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="subscription-hint">Sign in to manage email alerts for the technologies you follow.</p>
+              )}
+              {subscriptionMessage && <p className="subscription-message" role="status">{subscriptionMessage}</p>}
+            </section>
             {error && <div className="inline-notice"><CircleAlert size={16} /> {error}</div>}
             {loading && <div className="loading-row">Connecting to TechPulse API<span className="loading-dots">•••</span></div>}
             <div className="updates-list">
