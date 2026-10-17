@@ -232,7 +232,7 @@ resource "aws_iam_role_policy" "lambda_data" {
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:Scan"]
+      Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan"]
       Resource = [
         aws_dynamodb_table.updates.arn, "${aws_dynamodb_table.updates.arn}/index/*",
         aws_dynamodb_table.sources.arn, aws_dynamodb_table.analyses.arn,
