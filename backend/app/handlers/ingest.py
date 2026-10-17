@@ -20,13 +20,15 @@ def _queue_url() -> str | None:
 
 
 def _load_registry() -> list[SourceConfig]:
-    """Prefer source configuration persisted in DynamoDB; YAML is a local bootstrap fallback."""
+    """Prefer persisted source configuration; YAML is the local bootstrap fallback."""
     table_name = os.getenv("TECHPULSE_SOURCES_TABLE")
     if table_name:
         try:
-            return [SourceConfig.model_validate(item) for item in SourceStore(table_name).all_enabled()]
-        except Exception:  # noqa: BLE001 - local fallback is explicitly logged
-            logger.exception("Unable to load persisted source registry; using bundled registry fallback")
+            persisted = [SourceConfig.model_validate(item) for item in SourceStore(table_name).all_enabled()]
+            if persisted:
+                return persisted
+        except Exception:  # noqa: BLE001
+            logger.exception("Unable to load persisted registry; using bundled registry")
     return load_sources()
 
 
@@ -45,49 +47,52 @@ def _enqueue_analysis(update_id: str, content_hash: str, source_id: str) -> None
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """Handle an EventBridge poll request or SQS source job."""
+    """Process EventBridge source requests or SQS source jobs."""
     is_sqs = bool(event.get("Records"))
-    requested_ids: set[str] = set()
+    source_jobs: dict[str, str] = {}
     if is_sqs:
         for record in event.get("Records", []):
             body = record.get("body", "{}")
             try:
                 payload = json.loads(body) if isinstance(body, str) else body
             except json.JSONDecodeError:
+                source_jobs[str(record.get("messageId", ""))] = ""
                 continue
             if isinstance(payload, dict) and payload.get("source_id"):
-                requested_ids.add(str(payload["source_id"]))
+                source_jobs[str(record.get("messageId", payload["source_id"]))] = str(payload["source_id"])
     elif event.get("source_id"):
-        requested_ids.add(str(event["source_id"]))
+        source_jobs["direct"] = str(event["source_id"])
 
-    sources = _load_registry()
-    if requested_ids:
-        sources = [source for source in sources if source.source_id in requested_ids]
+    registry = _load_registry()
+    by_id = {source.source_id: source for source in registry}
+    selected = registry if not is_sqs and not source_jobs else [
+        by_id[source_id] for source_id in source_jobs.values() if source_id in by_id
+    ]
 
     store = UpdateStore()
-    failures: list[dict[str, str]] = []
+    failed_ids: set[str] = set()
     source_count = 0
     new_count = 0
-    for source in sources:
+    for source in selected:
         source_count += 1
         try:
             updates = fetch_source(source)
             for update in updates:
-                is_new = store.put_update_if_new(update)
-                if is_new:
+                if store.put_update_if_new(update):
                     new_count += 1
                     _enqueue_analysis(update.update_id, update.content_hash, update.source_id)
             logger.info(json.dumps({
                 "event": "source_poll_succeeded",
                 "source_id": source.source_id,
                 "fetched": len(updates),
-                "new": sum(1 for item in updates if store.get(item.update_id) is not None),
             }))
-        except Exception as exc:  # noqa: BLE001 - source failures are isolated
+        except Exception as exc:  # noqa: BLE001 - queue retry is responsible for transient failures
             logger.exception("Source poll failed: %s", source.source_id)
-            failures.append({"itemIdentifier": source.source_id, "error": type(exc).__name__})
+            for message_id, source_id in source_jobs.items():
+                if source_id == source.source_id:
+                    failed_ids.add(message_id)
 
-    # SQS event source mappings use partial batch response semantics.
+    failures = [{"itemIdentifier": message_id} for message_id in failed_ids]
     if is_sqs:
         return {"batchItemFailures": failures, "sources_checked": source_count, "new_updates": new_count}
     return {"sources_checked": source_count, "new_updates": new_count, "failures": failures}
