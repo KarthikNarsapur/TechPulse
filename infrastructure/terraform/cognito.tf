@@ -108,3 +108,28 @@ output "cognito_hosted_ui_url" {
   description = "Cognito hosted UI base URL for the frontend auth code flow."
   value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.aws_region}.amazoncognito.com"
 }
+
+
+resource "aws_apigatewayv2_route" "subscriptions_list" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "GET /api/v1/subscriptions"
+  target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "subscriptions_put" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "PUT /api/v1/subscriptions/{technology_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "subscriptions_delete" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "DELETE /api/v1/subscriptions/{technology_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
