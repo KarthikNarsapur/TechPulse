@@ -74,6 +74,7 @@ def test_ingestion_records_failure_without_persisting_exception_message(monkeypa
     result = ingest.handler({}, None)
 
     assert result["failures"] == []
+    assert result["failed_sources"] == ["aws-release"]
     status.started.assert_called_once()
     status.failed.assert_called_once()
     assert status.failed.call_args.kwargs["error_type"] == "ValueError"
