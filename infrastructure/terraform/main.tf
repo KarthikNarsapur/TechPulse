@@ -15,6 +15,7 @@ data "aws_partition" "current" {}
 
 locals {
   name = "${var.project_name}-${var.environment}"
+  cognito_domain_prefix = var.cognito_domain_prefix != "" ? var.cognito_domain_prefix : "${var.project_name}-${var.environment}-${data.aws_caller_identity.current.account_id}"
   common_environment = {
     TECHPULSE_ENVIRONMENT    = var.environment
     TECHPULSE_AWS_REGION     = var.aws_region
