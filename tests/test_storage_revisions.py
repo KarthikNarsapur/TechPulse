@@ -33,7 +33,6 @@ def _conditional_conflict() -> ClientError:
 def test_upsert_revision_inserts_new_update() -> None:
     store = UpdateStore()
     store._table = MagicMock()
-    store.table.put_item.return_value = None
 
     assert store.upsert_revision(_update(content_hash="hash-1")) == "new"
     item = store.table.put_item.call_args.kwargs["Item"]
