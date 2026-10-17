@@ -120,3 +120,34 @@ export async function getSourceStatus(): Promise<SourcePollStatus[]> {
   return (body.items ?? []) as SourcePollStatus[];
 }
 
+export interface UserUpdateState {
+  update_id: string;
+  saved: boolean;
+  read: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export async function getUserState(): Promise<UserUpdateState[]> {
+  if (!API_BASE) return [];
+  const response = await fetch(`${API_BASE}/api/v1/user-state`, { headers: authHeaders() });
+  if (!response.ok) throw new Error("Unable to load saved/read state");
+  const body = await response.json();
+  return (body.items ?? []) as UserUpdateState[];
+}
+
+export async function saveUserState(
+  updateId: string,
+  change: { saved?: boolean; read?: boolean },
+): Promise<UserUpdateState> {
+  if (!API_BASE) throw new Error("Configure the TechPulse API before saving updates.");
+  const response = await fetch(`${API_BASE}/api/v1/user-state/${encodeURIComponent(updateId)}`, {
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(change),
+  });
+  if (!response.ok) throw new Error("Unable to update saved/read state");
+  const body = await response.json();
+  return body.item as UserUpdateState;
+}
+
