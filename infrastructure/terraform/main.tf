@@ -1,5 +1,6 @@
 provider "aws" {
   region = var.aws_region
+
   default_tags {
     tags = {
       Project     = "TechPulse"
@@ -78,7 +79,7 @@ resource "aws_dynamodb_table" "deliveries" {
   hash_key     = "delivery_id"
   attribute { name = "delivery_id" type = "S" }
   point_in_time_recovery { enabled = var.environment == "prod" }
-  server_side_encryption { enabled = var.environment == "prod" }
+  server_side_encryption { enabled = true }
 }
 
 resource "aws_sqs_queue" "ingestion_dlq" {
@@ -145,9 +146,6 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   role       = aws_iam_role.lambda_execution.name
   policy_arn = "arn:\${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
-
-# Dedicated data permissions. Service permissions are separated below and can
-# later become per-function roles when the pilot expands.
 resource "aws_iam_role_policy" "lambda_data" {
   name = "\${local.name}-data-access"
   role = aws_iam_role.lambda_execution.id
@@ -209,7 +207,6 @@ resource "aws_lambda_function" "api" {
   depends_on = [aws_iam_role_policy_attachment.lambda_basic, aws_iam_role_policy.lambda_data]
   lifecycle { ignore_changes = [filename, source_code_hash] }
 }
-
 resource "aws_lambda_function" "dispatch" {
   function_name    = "\${local.name}-dispatch"
   role             = aws_iam_role.lambda_execution.arn
@@ -228,7 +225,6 @@ resource "aws_lambda_function" "dispatch" {
   depends_on = [aws_iam_role_policy_attachment.lambda_basic, aws_iam_role_policy.lambda_data, aws_iam_role_policy.lambda_queue_access]
   lifecycle { ignore_changes = [filename, source_code_hash] }
 }
-
 resource "aws_lambda_function" "ingest" {
   function_name    = "\${local.name}-ingest"
   role             = aws_iam_role.lambda_execution.arn
@@ -247,7 +243,6 @@ resource "aws_lambda_function" "ingest" {
   depends_on = [aws_iam_role_policy_attachment.lambda_basic, aws_iam_role_policy.lambda_data, aws_iam_role_policy.lambda_queue_access]
   lifecycle { ignore_changes = [filename, source_code_hash] }
 }
-
 resource "aws_lambda_function" "analyze" {
   function_name    = "\${local.name}-analyze"
   role             = aws_iam_role.lambda_execution.arn
@@ -266,7 +261,6 @@ resource "aws_lambda_function" "analyze" {
   depends_on = [aws_iam_role_policy_attachment.lambda_basic, aws_iam_role_policy.lambda_data, aws_iam_role_policy.lambda_ai_email, aws_iam_role_policy.lambda_queue_access]
   lifecycle { ignore_changes = [filename, source_code_hash] }
 }
-
 resource "aws_lambda_function" "notify" {
   function_name    = "\${local.name}-notify"
   role             = aws_iam_role.lambda_execution.arn
@@ -281,7 +275,6 @@ resource "aws_lambda_function" "notify" {
   depends_on = [aws_iam_role_policy_attachment.lambda_basic, aws_iam_role_policy.lambda_data, aws_iam_role_policy.lambda_ai_email, aws_iam_role_policy.lambda_queue_access]
   lifecycle { ignore_changes = [filename, source_code_hash] }
 }
-
 resource "aws_lambda_event_source_mapping" "ingest_queue" {
   event_source_arn                   = aws_sqs_queue.ingestion.arn
   function_name                      = aws_lambda_function.ingest.arn
@@ -368,12 +361,4 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.api.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "\${aws_apigatewayv2_api.http.execution_arn}/*/*"
-}
-
-output "api_endpoint" { value = aws_apigatewayv2_api.http.api_endpoint }
-output "updates_table_name" { value = aws_dynamodb_table.updates.name }
-output "ingestion_queue_url" { value = aws_sqs_queue.ingestion.url }
-output "aws_account_id" {
-  value       = data.aws_caller_identity.current.account_id
-  description = "AWS account where TechPulse is deployed."
 }
