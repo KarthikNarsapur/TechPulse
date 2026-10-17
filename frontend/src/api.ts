@@ -50,3 +50,51 @@ function authHeaders(): HeadersInit {
   const token = getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
+
+
+export type NotificationChannel = "email" | "slack" | "teams";
+
+export interface Subscription {
+  technology_id: string;
+  channel: NotificationChannel;
+  enabled: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+  secret_configured: boolean;
+}
+
+export async function getSubscriptions(): Promise<Subscription[]> {
+  if (!API_BASE) return [];
+  const response = await fetch(`${API_BASE}/api/v1/subscriptions`, { headers: authHeaders() });
+  if (!response.ok) throw new Error("Unable to load subscriptions");
+  const body = await response.json();
+  return (body.items ?? []) as Subscription[];
+}
+
+export async function saveSubscription(
+  technologyId: string,
+  channel: NotificationChannel = "email",
+  secretId?: string,
+): Promise<Subscription> {
+  if (!API_BASE) throw new Error("Configure the TechPulse API before managing subscriptions.");
+  const response = await fetch(`${API_BASE}/api/v1/subscriptions/${encodeURIComponent(technologyId)}`, {
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ channel, ...(secretId ? { secret_id: secretId } : {}) }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { detail?: { message?: string } };
+    throw new Error(body.detail?.message ?? "Unable to save subscription");
+  }
+  const body = await response.json();
+  return body.item as Subscription;
+}
+
+export async function removeSubscription(technologyId: string): Promise<void> {
+  if (!API_BASE) throw new Error("Configure the TechPulse API before managing subscriptions.");
+  const response = await fetch(`${API_BASE}/api/v1/subscriptions/${encodeURIComponent(technologyId)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) throw new Error("Unable to remove subscription");
+}
