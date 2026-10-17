@@ -4,7 +4,7 @@ import {
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
   Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
-import { getTechnologies, getUpdates, getSubscriptions, saveSubscription, removeSubscription, type Subscription, type Technology, type Update } from "./api";
+import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, saveSubscription, removeSubscription, type SourcePollStatus, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 const fallbackUpdates: Update[] = [
@@ -28,6 +28,8 @@ export default function App() {
   const [technologies, setTechnologies] = useState<Technology[]>([]);
   const [updates, setUpdates] = useState<Update[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [sourceStatuses, setSourceStatuses] = useState<SourcePollStatus[]>([]);
+  const [sourceStatusMessage, setSourceStatusMessage] = useState("");
   const [subscriptionBusy, setSubscriptionBusy] = useState<string | null>(null);
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [selected, setSelected] = useState("all");
@@ -94,6 +96,27 @@ export default function App() {
     }
     return () => { cancelled = true; };
   }, [selected, authStatus]);
+
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") {
+      setSourceStatuses([]);
+      setSourceStatusMessage("");
+      return;
+    }
+    let cancelled = false;
+    getSourceStatus()
+      .then((items) => {
+        if (!cancelled) {
+          setSourceStatuses(items);
+          setSourceStatusMessage("");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSourceStatusMessage("Source polling status is currently unavailable.");
+      });
+    return () => { cancelled = true; };
+  }, [authStatus]);
 
   async function toggleSubscription(technologyId: string) {
     const existing = subscriptions.find((item) => item.technology_id === technologyId);
@@ -216,6 +239,42 @@ export default function App() {
             <StatCard icon={<CircleAlert size={17} />} label="NEEDS ATTENTION" value="—" detail="Impact assessment pending" color="orange" />
             <StatCard icon={<Boxes size={17} />} label="TECHNOLOGIES" value={String(technologies.length).padStart(2, "0")} detail="Initial technology groups" color="purple" />
             <StatCard icon={<Bell size={17} />} label="DELIVERY CHANNELS" value="03" detail="Portal · Email · Chat-ready" color="blue" />
+          </section>
+
+
+          <section className="source-health-panel" aria-label="Source polling health">
+            <div className="subscription-heading">
+              <div><div className="eyebrow muted">INGESTION HEALTH</div><h2>Source polling status</h2></div>
+              <span className="subscription-count">{sourceStatuses.length} tracked</span>
+            </div>
+            {authStatus !== "authenticated" ? (
+              <p className="subscription-hint">Sign in to view durable source polling checkpoints.</p>
+            ) : sourceStatusMessage ? (
+              <p className="subscription-message" role="status">{sourceStatusMessage}</p>
+            ) : sourceStatuses.length === 0 ? (
+              <p className="subscription-hint">No poll checkpoints yet. They appear after the first source poll completes.</p>
+            ) : (
+              <div className="source-status-list">
+                {sourceStatuses.map((source) => (
+                  <div className="source-status-row" key={source.source_id}>
+                    <div className={`source-status-dot ${source.poll_status ?? "unknown"}`} />
+                    <div className="source-status-copy">
+                      <strong>{source.source_id}</strong>
+                      <small>
+                        {source.last_poll_success_at
+                          ? `Last success ${new Date(source.last_poll_success_at).toLocaleString()}`
+                          : source.last_poll_completed_at
+                            ? `Last attempt ${new Date(source.last_poll_completed_at).toLocaleString()}`
+                            : "Not polled yet"}
+                        {source.last_poll_error_type ? ` · ${source.last_poll_error_type}` : ""}
+                      </small>
+                    </div>
+                    <span className={`source-status-label ${source.poll_status ?? "unknown"}`}>{source.poll_status ?? "pending"}</span>
+                    <span className="source-status-count">{source.last_poll_fetched ?? 0} fetched</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="feed-section">
