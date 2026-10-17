@@ -12,7 +12,9 @@ mkdir -p "$API_BUILD" "$WORKER_BUILD"
 
 python3.12 -m pip install -r "$ROOT_DIR/backend/requirements.txt" -t "$API_BUILD"
 cp -R "$ROOT_DIR/backend/app" "$API_BUILD/app"
+cp -R "$ROOT_DIR/source-registry" "$API_BUILD/source-registry"
 cp -R "$ROOT_DIR/backend/app" "$WORKER_BUILD/app"
+cp -R "$ROOT_DIR/source-registry" "$WORKER_BUILD/source-registry"
 
 (
   cd "$API_BUILD"
@@ -24,4 +26,4 @@ cp -R "$ROOT_DIR/backend/app" "$WORKER_BUILD/app"
 )
 
 echo "Created $BUILD_DIR/api.zip and $BUILD_DIR/workers.zip"
-echo "Use a Linux-compatible Python 3.12 build environment for repeatable deployment artifacts."
+echo "Build with Python 3.12 in a Linux-compatible environment matching Lambda."
