@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+import boto3
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
@@ -57,6 +58,25 @@ def _principal(request: Request) -> tuple[str, str | None]:
             detail={"code": "UNAUTHENTICATED", "message": "A valid Cognito access token is required."},
         )
     return user_id, email
+
+
+def _verified_email_from_access_token(request: Request) -> str | None:
+    """Resolve a verified email through Cognito when it is absent from JWT claims."""
+    event: dict[str, Any] = request.scope.get("aws.event", {})
+    headers = event.get("headers") or {}
+    authorization = str(headers.get("authorization") or headers.get("Authorization") or "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return None
+    response = boto3.client(
+        "cognito-idp",
+        region_name=os.getenv("TECHPULSE_AWS_REGION", os.getenv("AWS_REGION", "ap-south-1")),
+    ).get_user(AccessToken=token.strip())
+    attributes = {item.get("Name"): item.get("Value") for item in response.get("UserAttributes", [])}
+    if str(attributes.get("email_verified", "")).lower() != "true":
+        return None
+    email = str(attributes.get("email") or "").strip()
+    return email or None
 
 
 def _public_subscription(item: dict[str, Any]) -> dict[str, Any]:
@@ -143,6 +163,8 @@ def put_subscription(
     item["created_at"] = (existing or {}).get("created_at", item["updated_at"])
 
     if body.channel == "email":
+        if not email:
+            email = _verified_email_from_access_token(request)
         if not email:
             raise HTTPException(
                 status_code=422,
