@@ -24,6 +24,7 @@ locals {
     TECHPULSE_ANALYSES_TABLE = aws_dynamodb_table.analyses.name
     TECHPULSE_UPDATE_INDEX   = "technology-published-index"
     TECHPULSE_MODEL_ID      = var.ai_model_id
+    TECHPULSE_CORS_ORIGINS  = join(",", concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
     TECHPULSE_ANALYSIS_QUEUE_URL = aws_sqs_queue.analysis.url
     TECHPULSE_NOTIFICATIONS_QUEUE_URL = aws_sqs_queue.notifications.url
   }
@@ -435,7 +436,7 @@ resource "aws_apigatewayv2_api" "http" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = var.frontend_allowed_origins
+    allow_origins = distinct(concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
     allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_headers = ["authorization", "content-type", "idempotency-key"]
     max_age       = 3600
