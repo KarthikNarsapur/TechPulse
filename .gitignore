@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.coverage
+htmlcov/
+
+# Frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+infrastructure/terraform/dist/
+infrastructure/terraform/.terraform.lock.hcl
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
