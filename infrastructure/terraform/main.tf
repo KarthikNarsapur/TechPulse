@@ -22,6 +22,8 @@ locals {
     TECHPULSE_UPDATES_TABLE  = aws_dynamodb_table.updates.name
     TECHPULSE_SOURCES_TABLE  = aws_dynamodb_table.sources.name
     TECHPULSE_ANALYSES_TABLE = aws_dynamodb_table.analyses.name
+    TECHPULSE_DELIVERIES_TABLE = aws_dynamodb_table.deliveries.name
+    TECHPULSE_SES_FROM_ADDRESS = var.ses_from_address
     TECHPULSE_UPDATE_INDEX   = "technology-published-index"
     TECHPULSE_MODEL_ID      = var.ai_model_id
     TECHPULSE_CORS_ORIGINS  = join(",", concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
@@ -257,7 +259,12 @@ resource "aws_iam_role_policy" "lambda_ai_email" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["bedrock:InvokeModel"], Resource = "*" },
-      { Effect = "Allow", Action = ["ses:SendEmail", "ses:SendRawEmail"], Resource = "*" }
+      { Effect = "Allow", Action = ["ses:SendEmail", "ses:SendRawEmail"], Resource = "*" },
+      {
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = ["arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:techpulse-${var.environment}-notifications-*"]
+      }
     ]
   })
 }
