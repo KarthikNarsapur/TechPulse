@@ -332,3 +332,38 @@ class PollStatusStore:
             items.extend(response.get("Items", []))
         return sorted(items, key=lambda item: str(item.get("source_id", "")))
 
+class UserStateStore:
+    """User-owned saved/read state for canonical updates."""
+
+    def __init__(self, table_name: str | None = None, *, region_name: str | None = None) -> None:
+        self.table_name = table_name or os.getenv("TECHPULSE_USER_STATE_TABLE", "techpulse-dev-user-state")
+        self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
+        self._table: Any | None = None
+
+    @property
+    def table(self) -> Any:
+        if self._table is None:
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+        return self._table
+
+    def list_for_user(self, user_id: str) -> list[dict[str, Any]]:
+        response = self.table.query(KeyConditionExpression=Key("user_id").eq(user_id))
+        items = list(response.get("Items", []))
+        while response.get("LastEvaluatedKey"):
+            response = self.table.query(
+                KeyConditionExpression=Key("user_id").eq(user_id),
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+            )
+            items.extend(response.get("Items", []))
+        return items
+
+    def get(self, user_id: str, update_id: str) -> dict[str, Any] | None:
+        response = self.table.get_item(
+            Key={"user_id": user_id, "update_id": update_id},
+            ConsistentRead=True,
+        )
+        return response.get("Item")
+
+    def put(self, item: dict[str, Any]) -> None:
+        self.table.put_item(Item=item)
+
