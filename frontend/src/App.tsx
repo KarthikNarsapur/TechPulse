@@ -8,14 +8,14 @@ import { getTechnologies, getUpdates, type Technology, type Update } from "./api
 
 const fallbackUpdates: Update[] = [
   {
-    id: "demo-1",
+    update_id: "demo-1",
     title: "Your engineering update feed starts here",
     technology: "TechPulse",
     category: "Getting started",
     priority: "informational",
     summary: "Connect validated official sources to start collecting release notes, deprecations, security advisories, and product announcements.",
-    publishedAt: new Date().toISOString(),
-    sourceUrl: "https://github.com/KarthikNarsapur/TechPulse",
+    published_at: new Date().toISOString(),
+    canonical_url: "https://github.com/KarthikNarsapur/TechPulse",
   },
 ];
 
@@ -33,7 +33,7 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getTechnologies(), getUpdates()])
+    Promise.all([getTechnologies(), getUpdates(selected === "all" ? undefined : selected)])
       .then(([technologyList, updateList]) => {
         if (cancelled) return;
         setTechnologies(technologyList);
@@ -46,13 +46,13 @@ export default function App() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [selected]);
 
   const visibleUpdates = useMemo(() => {
     const dataset = updates.length > 0 ? updates : fallbackUpdates;
     return dataset.filter((update) => {
       const technologyMatches = selected === "all" || update.technology.toLowerCase() === selected;
-      const searchMatches = `${update.title} ${update.summary} ${update.technology} ${update.category}`
+      const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category}`
         .toLowerCase().includes(search.toLowerCase());
       return technologyMatches && searchMatches;
     });
@@ -146,15 +146,15 @@ export default function App() {
             {loading && <div className="loading-row">Connecting to TechPulse API<span className="loading-dots">•••</span></div>}
             <div className="updates-list">
               {visibleUpdates.map((update) => (
-                <article className="update-card" key={update.id}>
+                <article className="update-card" key={update.update_id}>
                   <div className={`update-provider ${update.technology.toLowerCase().replace(/[^a-z0-9]/g, "")}`}><Workflow size={20} /></div>
                   <div className="update-main">
-                    <div className="update-meta"><span>{update.technology}</span><span className="meta-dot">•</span><span>{update.category}</span><span className="meta-dot">•</span><time>{new Date(update.publishedAt).toLocaleDateString()}</time></div>
+                    <div className="update-meta"><span>{update.technology}</span><span className="meta-dot">•</span><span>{update.category}</span><span className="meta-dot">•</span><time>{new Date(update.published_at ?? Date.now()).toLocaleDateString()}</time></div>
                     <h3>{update.title}</h3>
                     <p>{update.summary}</p>
                     <div className="update-footer"><span className={`priority priority-${update.priority}`}>{priorityLabel(update.priority)} priority</span><span className="verified-label"><ShieldCheck size={13} /> Source linked</span></div>
                   </div>
-                  <a className="open-update" href={update.sourceUrl} target="_blank" rel="noreferrer" aria-label="Open original announcement"><ArrowUpRight size={17} /></a>
+                  <a className="open-update" href={update.canonical_url} target="_blank" rel="noreferrer" aria-label="Open original announcement"><ArrowUpRight size={17} /></a>
                 </article>
               ))}
               {!loading && visibleUpdates.length === 0 && <div className="empty-state"><Search size={22} /><strong>No updates found</strong><span>Try another search or technology filter.</span></div>}
