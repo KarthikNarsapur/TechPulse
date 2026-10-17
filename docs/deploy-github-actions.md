@@ -17,12 +17,14 @@ For a production setup, use a protected GitHub Environment and a dedicated AWS r
 
 ## Run a deployment
 
+The `workflow_dispatch` workflow must exist on the repository's default branch before GitHub exposes the manual **Run workflow** button. Merge the workflow change into the default branch first; then select the deployment branch in the Actions UI.
+
 1. Open the repository on GitHub.
 2. Select **Actions** → **Deploy TechPulse to AWS**.
-3. Select environment `dev`, region `ap-south-1`, and action `plan`.
-4. Run the workflow and inspect the uploaded Terraform plan artifact.
-5. If the plan is expected, run the workflow again with action `apply`.
-6. Check the workflow summary/logs for the frontend URL and API health result.
+3. Select the deployment branch, environment `dev`, region `ap-south-1`, and action `plan`.
+4. Run the workflow and inspect the uploaded Terraform plan artifact. Copy the run ID from that workflow run's URL.
+5. Run the workflow again with action `apply` and enter the reviewed plan run ID in `plan_run_id`. This applies the saved plan from that run rather than silently generating a different plan.
+6. Check the workflow logs for the frontend URL and API health result.
 
 The workflow creates a versioned, encrypted, public-access-blocked S3 bucket for Terraform state, then initializes Terraform with S3 native state locking. State is separated by environment.
 
