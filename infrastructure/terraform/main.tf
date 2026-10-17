@@ -22,6 +22,7 @@ locals {
     TECHPULSE_SOURCES_TABLE  = aws_dynamodb_table.sources.name
     TECHPULSE_ANALYSES_TABLE = aws_dynamodb_table.analyses.name
     TECHPULSE_UPDATE_INDEX   = "technology-published-index"
+    TECHPULSE_MODEL_ID      = var.ai_model_id
     TECHPULSE_ANALYSIS_QUEUE_URL = aws_sqs_queue.analysis.url
     TECHPULSE_NOTIFICATIONS_QUEUE_URL = aws_sqs_queue.notifications.url
   }
@@ -145,7 +146,7 @@ resource "aws_sqs_queue" "ingestion_dlq" {
 }
 resource "aws_sqs_queue" "ingestion" {
   name                       = "${local.name}-ingestion"
-  visibility_timeout_seconds = 180
+  visibility_timeout_seconds = 900
   message_retention_seconds  = 345600
   receive_wait_time_seconds  = 10
   sqs_managed_sse_enabled    = true
