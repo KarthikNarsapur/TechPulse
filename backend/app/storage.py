@@ -250,3 +250,85 @@ class SubscriptionStore:
 
     def delete(self, user_id: str, technology_id: str) -> None:
         self.table.delete_item(Key={"user_id": user_id, "technology_id": technology_id})
+
+class PollStatusStore:
+    """Durable per-source polling checkpoints, isolated from source configuration."""
+
+    def __init__(self, table_name: str | None = None, *, region_name: str | None = None) -> None:
+        self.table_name = table_name or os.getenv(
+            "TECHPULSE_POLL_STATUS_TABLE", "techpulse-dev-poll-status"
+        )
+        self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
+        self._table: Any | None = None
+
+    @property
+    def table(self) -> Any:
+        if self._table is None:
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+        return self._table
+
+    def started(self, source_id: str, *, started_at: str) -> None:
+        self.table.update_item(
+            Key={"source_id": source_id},
+            UpdateExpression=(
+                "SET poll_status = :status, last_poll_started_at = :started, "
+                "last_poll_error_type = :empty ADD poll_attempts :one"
+            ),
+            ExpressionAttributeValues={
+                ":status": "running",
+                ":started": started_at,
+                ":empty": "",
+                ":one": 1,
+            },
+        )
+
+    def succeeded(
+        self,
+        source_id: str,
+        *,
+        completed_at: str,
+        fetched: int,
+        new_count: int,
+        changed_count: int,
+    ) -> None:
+        self.table.update_item(
+            Key={"source_id": source_id},
+            UpdateExpression=(
+                "SET poll_status = :status, last_poll_completed_at = :completed, "
+                "last_poll_success_at = :completed, last_poll_fetched = :fetched, "
+                "last_poll_new = :new, last_poll_changed = :changed, "
+                "last_poll_error_type = :empty"
+            ),
+            ExpressionAttributeValues={
+                ":status": "succeeded",
+                ":completed": completed_at,
+                ":fetched": fetched,
+                ":new": new_count,
+                ":changed": changed_count,
+                ":empty": "",
+            },
+        )
+
+    def failed(self, source_id: str, *, failed_at: str, error_type: str) -> None:
+        # Persist only the exception class, not source payloads, URLs, or credentials.
+        self.table.update_item(
+            Key={"source_id": source_id},
+            UpdateExpression=(
+                "SET poll_status = :status, last_poll_completed_at = :failed, "
+                "last_poll_error_type = :error"
+            ),
+            ExpressionAttributeValues={
+                ":status": "failed",
+                ":failed": failed_at,
+                ":error": error_type[:120],
+            },
+        )
+
+    def list_status(self) -> list[dict[str, Any]]:
+        response = self.table.scan()
+        items = list(response.get("Items", []))
+        while response.get("LastEvaluatedKey"):
+            response = self.table.scan(ExclusiveStartKey=response["LastEvaluatedKey"])
+            items.extend(response.get("Items", []))
+        return sorted(items, key=lambda item: str(item.get("source_id", "")))
+
