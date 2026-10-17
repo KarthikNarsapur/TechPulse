@@ -5,7 +5,7 @@ sources:
     vendor: aws
     technology: aws
     source_type: rss
-    url: https://aws.amazon.com/new/feed/
+    url: https://aws.amazon.com/about-aws/whats-new/recent/feed/
     poll_interval_minutes: 30
     enabled: false
     trust_level: official
@@ -23,7 +23,7 @@ sources:
     vendor: google
     technology: gcp
     source_type: rss
-    url: https://cloud.google.com/feeds/gcp-release-notes.xml
+    url: https://docs.cloud.google.com/feeds/gcp-release-notes.xml
     poll_interval_minutes: 30
     enabled: false
     trust_level: official
