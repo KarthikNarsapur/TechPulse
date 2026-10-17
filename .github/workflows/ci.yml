@@ -24,7 +24,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check app ../tests
       - run: ruff format app ../tests
-      - run: pytest ../tests --cov=app --cov-report=term-missing
+      - run: PYTHONPATH=. pytest ../tests --cov=app --cov-report=term-missing
 
   frontend:
     runs-on: ubuntu-latest
