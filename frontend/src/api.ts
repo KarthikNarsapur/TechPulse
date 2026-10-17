@@ -98,3 +98,25 @@ export async function removeSubscription(technologyId: string): Promise<void> {
   });
   if (!response.ok) throw new Error("Unable to remove subscription");
 }
+
+export interface SourcePollStatus {
+  source_id: string;
+  poll_status?: "running" | "succeeded" | "failed" | string;
+  poll_attempts?: number;
+  last_poll_started_at?: string;
+  last_poll_completed_at?: string;
+  last_poll_success_at?: string;
+  last_poll_fetched?: number;
+  last_poll_new?: number;
+  last_poll_changed?: number;
+  last_poll_error_type?: string;
+}
+
+export async function getSourceStatus(): Promise<SourcePollStatus[]> {
+  if (!API_BASE) return [];
+  const response = await fetch(`${API_BASE}/api/v1/source-status`, { headers: authHeaders() });
+  if (!response.ok) throw new Error("Unable to load source polling status");
+  const body = await response.json();
+  return (body.items ?? []) as SourcePollStatus[];
+}
+
