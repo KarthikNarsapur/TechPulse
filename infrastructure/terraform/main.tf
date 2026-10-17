@@ -23,6 +23,8 @@ locals {
     TECHPULSE_SOURCES_TABLE  = aws_dynamodb_table.sources.name
     TECHPULSE_ANALYSES_TABLE = aws_dynamodb_table.analyses.name
     TECHPULSE_DELIVERIES_TABLE = aws_dynamodb_table.deliveries.name
+    TECHPULSE_SUBSCRIPTIONS_TABLE = aws_dynamodb_table.subscriptions.name
+    TECHPULSE_SUBSCRIPTION_TECH_INDEX = "technology-index"
     TECHPULSE_SES_FROM_ADDRESS = var.ses_from_address
     TECHPULSE_UPDATE_INDEX   = "technology-published-index"
     TECHPULSE_MODEL_ID      = var.ai_model_id
@@ -127,6 +129,12 @@ resource "aws_dynamodb_table" "subscriptions" {
   attribute {
     name = "technology_id"
     type = "S"
+  }
+  global_secondary_index {
+    name            = "technology-index"
+    hash_key        = "technology_id"
+    range_key       = "user_id"
+    projection_type = "ALL"
   }
   point_in_time_recovery {
     enabled = var.environment == "prod"
