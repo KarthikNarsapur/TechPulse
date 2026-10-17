@@ -35,8 +35,9 @@ export async function getTechnologies(): Promise<Technology[]> {
 }
 
 export async function getUpdates(technology?: string): Promise<Update[]> {
-  if (!API_BASE || !technology) return [];
-  const query = new URLSearchParams({ technology });
+  if (!API_BASE) return [];
+  const query = new URLSearchParams();
+  if (technology) query.set("technology", technology);
   const response = await fetch(`${API_BASE}/api/v1/updates?${query.toString()}`);
   if (!response.ok) throw new Error("Unable to load updates");
   const body = await response.json();
