@@ -18,8 +18,8 @@
 
 ## Increment 2 — Complete the first useful vertical slice
 
-- [ ] Make source polling status/checkpoints durable and visible in the admin page.
-- [ ] Add automated tests for Lambda ingestion behavior on new, changed, and unchanged source content.
+- [x] Persist per-source poll attempts, start/completion timestamps, outcomes, item counts, and sanitized error types in DynamoDB; expose authenticated status API and dashboard panel.
+- [x] Add automated tests for Lambda ingestion behavior on new, changed, unchanged, and failed source polls.
 - [ ] Implement a provider interface for AI and add mocked-provider tests.
 - [x] Implement user-scoped technology subscription list/create/delete APIs behind the Cognito JWT authorizer.
 - [x] Add dashboard controls to subscribe/unsubscribe from email alerts per technology.
