@@ -22,6 +22,7 @@
 - [ ] Add automated tests for Lambda ingestion behavior on new, changed, and unchanged source content.
 - [ ] Implement a provider interface for AI and add mocked-provider tests.
 - [x] Implement user-scoped technology subscription list/create/delete APIs behind the Cognito JWT authorizer.
+- [x] Add dashboard controls to subscribe/unsubscribe from email alerts per technology.
 - [ ] Implement user read/saved update state APIs.
 - [x] Implement initial notification eligibility by enabled technology subscriptions.
 - [x] Add persisted delivery claims, provider outcomes, retry recovery, and delivery status.
