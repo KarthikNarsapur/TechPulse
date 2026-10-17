@@ -93,6 +93,7 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements.txt -t /tmp/techpulse-lambda
+          rm -rf /tmp/techpulse-lambda/app
           cp -R backend/app /tmp/techpulse-lambda/app
           mkdir -p infrastructure/terraform/dist
           (cd /tmp/techpulse-lambda && zip -qr "$GITHUB_WORKSPACE/infrastructure/terraform/dist/api.zip" .)
@@ -211,7 +212,7 @@ jobs:
           FRONTEND_URL="$(terraform -chdir=infrastructure/terraform output -raw frontend_url)"
           COGNITO_DOMAIN="$(terraform -chdir=infrastructure/terraform output -raw cognito_hosted_ui_url)"
           COGNITO_CLIENT="$(terraform -chdir=infrastructure/terraform output -raw cognito_client_id)"
-          npm --prefix frontend ci
+          npm --prefix frontend install
           VITE_API_BASE_URL="$API_URL" \
           VITE_COGNITO_HOSTED_UI_URL="$COGNITO_DOMAIN" \
           VITE_COGNITO_CLIENT_ID="$COGNITO_CLIENT" \
