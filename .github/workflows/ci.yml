@@ -49,6 +49,6 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.8"
-      - run: terraform fmt -recursive infrastructure/terraform
+      - run: terraform fmt -recursive infrastructure/terraform -diff
       - run: terraform -chdir=infrastructure/terraform init -backend=false
       - run: terraform -chdir=infrastructure/terraform validate
