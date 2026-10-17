@@ -21,6 +21,7 @@ locals {
     TECHPULSE_AWS_REGION     = var.aws_region
     TECHPULSE_UPDATES_TABLE  = aws_dynamodb_table.updates.name
     TECHPULSE_SOURCES_TABLE  = aws_dynamodb_table.sources.name
+    TECHPULSE_POLL_STATUS_TABLE = aws_dynamodb_table.poll_status.name
     TECHPULSE_ANALYSES_TABLE = aws_dynamodb_table.analyses.name
     TECHPULSE_DELIVERIES_TABLE = aws_dynamodb_table.deliveries.name
     TECHPULSE_SUBSCRIPTIONS_TABLE = aws_dynamodb_table.subscriptions.name
@@ -79,6 +80,24 @@ resource "aws_dynamodb_table" "updates" {
 
 resource "aws_dynamodb_table" "sources" {
   name         = "${local.name}-sources"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "source_id"
+
+  attribute {
+    name = "source_id"
+    type = "S"
+  }
+  point_in_time_recovery {
+    enabled = var.environment == "prod"
+  }
+  server_side_encryption {
+    enabled = true
+  }
+}
+
+
+resource "aws_dynamodb_table" "poll_status" {
+  name         = "${local.name}-poll-status"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "source_id"
 
@@ -236,7 +255,7 @@ resource "aws_iam_role_policy" "lambda_data" {
         Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan"]
         Resource = [
           aws_dynamodb_table.updates.arn, "${aws_dynamodb_table.updates.arn}/index/*",
-          aws_dynamodb_table.sources.arn, aws_dynamodb_table.analyses.arn,
+          aws_dynamodb_table.sources.arn, aws_dynamodb_table.poll_status.arn, aws_dynamodb_table.analyses.arn,
           aws_dynamodb_table.subscriptions.arn, aws_dynamodb_table.deliveries.arn
         ]
       },
