@@ -1,3 +1,5 @@
+import { getAccessToken } from "./auth";
+
 export interface Technology {
   id: string;
   name: string;
@@ -28,7 +30,7 @@ export async function getTechnologies(): Promise<Technology[]> {
       { id: "gitlab", name: "GitLab", category: "CI/CD" },
     ];
   }
-  const response = await fetch(`${API_BASE}/api/v1/technologies`);
+  const response = await fetch(`${API_BASE}/api/v1/technologies`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Unable to load technologies");
   const body = await response.json();
   return body.items as Technology[];
@@ -38,8 +40,13 @@ export async function getUpdates(technology?: string): Promise<Update[]> {
   if (!API_BASE) return [];
   const query = new URLSearchParams();
   if (technology) query.set("technology", technology);
-  const response = await fetch(`${API_BASE}/api/v1/updates?${query.toString()}`);
+  const response = await fetch(`${API_BASE}/api/v1/updates?${query.toString()}`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Unable to load updates");
   const body = await response.json();
   return (body.items ?? []) as Update[];
+}
+
+function authHeaders(): HeadersInit {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
