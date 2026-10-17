@@ -36,4 +36,4 @@
 
 DynamoDB is the initial persistence layer. It fits the known primary access patterns and avoids managing database connections from Lambda. Its limited ad hoc search capabilities are an intentional trade-off; consider OpenSearch only after measurable search requirements justify it.
 
-Cognito is the pilot identity provider. The health route is public; technology, feed, update-detail, and subscription routes use the API Gateway JWT authorizer. Subscription ownership is derived from the verified `sub` claim, never from request input. Administrative source management still requires separate role enforcement before it is exposed.
+Cognito is the pilot identity provider. The health route is public; technology, feed, update-detail, and subscription routes use the API Gateway JWT authorizer. Subscription ownership is derived from the verified `sub` claim, never from request input. Administrative source management still requires separate role enforcement before it is exposed. Subscription APIs support email alerts and pre-created environment-scoped Slack/Teams secret references; the dashboard currently exposes email subscription controls.
