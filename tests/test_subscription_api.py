@@ -101,3 +101,64 @@ def test_delete_subscription_is_user_scoped(monkeypatch) -> None:
     assert response.status_code == 200
     assert ("cognito-sub-123", "terraform") not in FakeSubscriptionStore.items
     assert ("another-user", "terraform") in FakeSubscriptionStore.items
+
+
+def test_verified_email_falls_back_to_cognito_user_attributes(monkeypatch) -> None:
+    from unittest.mock import MagicMock
+
+    from starlette.requests import Request
+
+    from app.api import _verified_email_from_access_token
+
+    cognito = MagicMock()
+    cognito.get_user.return_value = {
+        "UserAttributes": [
+            {"Name": "email", "Value": "verified@example.com"},
+            {"Name": "email_verified", "Value": "true"},
+        ]
+    }
+    monkeypatch.setattr("app.api.boto3.client", lambda *args, **kwargs: cognito)
+    request = Request({
+        "type": "http",
+        "method": "PUT",
+        "path": "/api/v1/subscriptions/terraform",
+        "headers": [],
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("test", 1),
+        "scheme": "http",
+        "aws.event": {"headers": {"authorization": "Bearer test-access-token"}},
+    })
+
+    assert _verified_email_from_access_token(request) == "verified@example.com"
+    cognito.get_user.assert_called_once_with(AccessToken="test-access-token")
+
+
+def test_verified_email_rejects_unverified_cognito_attribute(monkeypatch) -> None:
+    from unittest.mock import MagicMock
+
+    from starlette.requests import Request
+
+    from app.api import _verified_email_from_access_token
+
+    cognito = MagicMock()
+    cognito.get_user.return_value = {
+        "UserAttributes": [
+            {"Name": "email", "Value": "unverified@example.com"},
+            {"Name": "email_verified", "Value": "false"},
+        ]
+    }
+    monkeypatch.setattr("app.api.boto3.client", lambda *args, **kwargs: cognito)
+    request = Request({
+        "type": "http",
+        "method": "PUT",
+        "path": "/api/v1/subscriptions/terraform",
+        "headers": [],
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("test", 1),
+        "scheme": "http",
+        "aws.event": {"headers": {"authorization": "Bearer test-access-token"}},
+    })
+
+    assert _verified_email_from_access_token(request) is None
