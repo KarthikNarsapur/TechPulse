@@ -25,6 +25,61 @@ The core user outcome is genuine updates from the **last 7 days**, working contr
 
 Follow existing architecture and naming patterns before introducing services, dependencies, data stores, or frameworks.
 
+## Department workspaces and shared cross-workspace updates
+
+This is a product requirement for the department-based experience. Build separate, persistent workspaces for departments, while keeping one shared update catalog underneath.
+
+### Core interaction rule
+
+- Each department has its own workspace identity, landing view, saved preferences, and department-focused default feed.
+- A user can discover and read updates relevant to other departments **inside their current workspace**. Cross-department access must not switch the active workspace, change its URL/context unexpectedly, or reset the user's workspace-specific filters and state.
+- Use in-workspace filters, related-update sections, technology views, or a shared-catalog search to expose cross-department updates. Make the update's originating/relevant department(s) clear.
+- An update may be relevant to multiple departments. Model this as many-to-many relevance, not by duplicating the underlying update record per workspace.
+- Keep one canonical update record and canonical URL. Workspace views are filtered/shared views over that catalog.
+- Distinguish an update's **source technology** (AWS, Azure, GCP, Kubernetes, Terraform, GitLab, etc.) from its **department relevance**. Technology and department are separate dimensions.
+- Do not require users to change workspaces just to view Terraform or Kubernetes updates while working in Migration and FinOps.
+- Preserve the current active workspace when opening a cross-department update and when returning to the feed.
+- Respect authentication and authorization for any department-specific or restricted content. Do not assume that a job title alone grants access to sensitive data.
+
+### Department hierarchy
+
+Use the supplied employee directory's department labels as the canonical starting taxonomy. Preserve parent/child relationships:
+
+- **General**
+- **Tech Consulting (TC)**
+  - TC - General
+  - TC - Data and AIoT
+  - TC - Migration and FinOps
+  - TC - DevOps & Kubernetes
+  - TC - Development
+  - TC - L&D, Content
+  - TC - Pre-Sales
+- **Training Sales (TS)**
+  - TS - MS Programs
+  - TS - Corporate Accounts
+  - TS - Inside Sales Management
+  - TS - Demand Generation
+- **HR & OD**
+  - HR & Finance
+
+Keep TC as the primary product focus and sensible default for the initial implementation, but do not hard-code the application so other departments cannot be used. Use stable department IDs internally and human-readable labels in the UI. Normalize whitespace and punctuation for mapping/import purposes without silently renaming the visible labels.
+
+The supplied directory maps job titles to departments, including repeated titles. Do not treat job titles as unique employee identifiers, and do not invent employee names or identities. If user-to-department membership is introduced, use a reliable user identity and an explicit directory/membership mapping; define a safe default for users whose department is unknown.
+
+### Relevance behavior and examples
+
+- In **TC - Migration and FinOps**, show migration/FinOps-focused updates by default and allow users to view Kubernetes, Terraform, cloud infrastructure, security, and other cross-team updates in the same workspace.
+- A Terraform or Kubernetes update can be relevant to both TC - DevOps & Kubernetes and TC - Migration and FinOps when the content supports both. Do not classify solely from a keyword if context suggests otherwise.
+- General/cross-team updates should be accessible from relevant department workspaces without duplicating stored update records.
+- Users can filter/search by technology and relevance department without navigating away from the active workspace.
+- If relevance is uncertain, classify as cross-team/general or mark it for review rather than confidently assigning an unsupported department.
+
+### Implementation and migration guidance
+
+Before coding, inspect the current data models, API routes, frontend routing/state, DynamoDB keys/indexes, user-state storage, and tests. Propose a minimal data model for stable department IDs, parent IDs, user workspace preference, and update-to-department relevance. Keep compatibility with existing updates and users; existing updates should remain visible through a sensible General/cross-team fallback until classified.
+
+Implement the shared catalog and workspace views without creating duplicate update rows per department. Add tests proving that cross-department browsing leaves the active workspace unchanged, technology filters work inside a workspace, multi-department relevance works, unknown departments fail safely, and existing update records remain accessible. Document any required migration and deploy steps. Do not make live infrastructure or destructive data changes without explicit approval.
+
 ## Current pilot sources
 
 The checked-in source registry defines the initial pilot: official RSS/Atom endpoints and GitHub Releases API sources for AWS, Azure, GCP, Kubernetes, Terraform, and GitLab. Verify endpoint reachability, response format, timestamp parsing, stable identity, and successful polling. An enabled source is not necessarily a healthy source.
