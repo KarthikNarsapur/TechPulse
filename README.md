@@ -112,6 +112,14 @@ A DynamoDB delivery record provides a conditional claim/lease so duplicate SQS d
 
 The React + TypeScript frontend calls the FastAPI backend through API Gateway. The backend reads persisted update, analysis, technology, and subscription data from DynamoDB. The frontend is built as static assets and hosted from Amazon S3 behind CloudFront. Cognito authenticates users; protected API routes use a JWT authorizer.
 
+## Department workspaces and shared updates
+
+The portal includes department-focused workspaces based on the employee directory. Tech Consulting is the primary focus, with workspaces for TC - Migration and FinOps, TC - DevOps & Kubernetes, TC - General, TC - Data and AIoT, TC - Development, TC - L&D, Content, and TC - Pre-Sales. Training Sales, HR & Finance, and General workspaces are also available.
+
+The workspace selector changes the active department view. **Department focus** narrows the feed to the workspace's default technology set; **All shared updates** exposes the shared catalog without switching the active workspace. Technology chips and search can be used inside either view, so a user in TC - Migration and FinOps can browse Terraform or Kubernetes updates in place.
+
+This first iteration uses one shared update catalog and client-side workspace preferences. The active workspace is saved in browser local storage. Workspace relevance is currently a technology-based default, not an authoritative employee authorization or a fully curated per-update department classification. Cross-workspace browsing does not duplicate update records or change the active workspace. Future backend work can persist user workspace preferences and attach reviewed multi-department relevance metadata to updates.
+
 ## Architecture and AWS components
 
 | Component | Responsibility |
