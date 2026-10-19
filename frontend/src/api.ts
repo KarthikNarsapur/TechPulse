@@ -35,7 +35,7 @@ export const DEFAULT_TECHNOLOGIES: Technology[] = [
 
 export async function getTechnologies(): Promise<Technology[]> {
   if (!API_BASE) return DEFAULT_TECHNOLOGIES;
-  const response = await fetch(`${API_BASE}/api/v1/technologies`, { headers: authHeaders() });
+  const response = await fetch(`${API_BASE}/api/v1/technologies`, { headers: await authHeaders() });
   if (!response.ok) throw new Error("Unable to load technologies");
   const body = await response.json();
   return body.items as Technology[];
@@ -45,7 +45,7 @@ export async function getUpdates(technology?: string): Promise<Update[]> {
   if (!API_BASE) return [];
   const query = new URLSearchParams({ days: "7", limit: "100" });
   if (technology) query.set("technology", technology);
-  const response = await fetch(`${API_BASE}/api/v1/updates?${query.toString()}`, { headers: authHeaders() });
+  const response = await fetch(`${API_BASE}/api/v1/updates?${query.toString()}`, { headers: await authHeaders() });
   if (!response.ok) throw new Error("Unable to load updates");
   const body = await response.json();
   return (body.items ?? []) as Update[];
@@ -70,7 +70,7 @@ export interface Subscription {
 
 export async function getSubscriptions(): Promise<Subscription[]> {
   if (!API_BASE) return [];
-  const response = await fetch(`${API_BASE}/api/v1/subscriptions`, { headers: authHeaders() });
+  const response = await fetch(`${API_BASE}/api/v1/subscriptions`, { headers: await authHeaders() });
   if (!response.ok) throw new Error("Unable to load subscriptions");
   const body = await response.json();
   return (body.items ?? []) as Subscription[];
@@ -84,7 +84,7 @@ export async function saveSubscription(
   if (!API_BASE) throw new Error("Configure the TechPulse API before managing subscriptions.");
   const response = await fetch(`${API_BASE}/api/v1/subscriptions/${encodeURIComponent(technologyId)}`, {
     method: "PUT",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { ...await authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ channel, ...(secretId ? { secret_id: secretId } : {}) }),
   });
   if (!response.ok) {
@@ -99,7 +99,7 @@ export async function removeSubscription(technologyId: string): Promise<void> {
   if (!API_BASE) throw new Error("Configure the TechPulse API before managing subscriptions.");
   const response = await fetch(`${API_BASE}/api/v1/subscriptions/${encodeURIComponent(technologyId)}`, {
     method: "DELETE",
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!response.ok) throw new Error("Unable to remove subscription");
 }
@@ -119,7 +119,7 @@ export interface SourcePollStatus {
 
 export async function getSourceStatus(): Promise<SourcePollStatus[]> {
   if (!API_BASE) return [];
-  const response = await fetch(`${API_BASE}/api/v1/source-status`, { headers: authHeaders() });
+  const response = await fetch(`${API_BASE}/api/v1/source-status`, { headers: await authHeaders() });
   if (!response.ok) throw new Error("Unable to load source polling status");
   const body = await response.json();
   return (body.items ?? []) as SourcePollStatus[];
@@ -135,7 +135,7 @@ export interface UserUpdateState {
 
 export async function getUserState(): Promise<UserUpdateState[]> {
   if (!API_BASE) return [];
-  const response = await fetch(`${API_BASE}/api/v1/user-state`, { headers: authHeaders() });
+  const response = await fetch(`${API_BASE}/api/v1/user-state`, { headers: await authHeaders() });
   if (!response.ok) throw new Error("Unable to load saved/read state");
   const body = await response.json();
   return (body.items ?? []) as UserUpdateState[];
@@ -148,7 +148,7 @@ export async function saveUserState(
   if (!API_BASE) throw new Error("Configure the TechPulse API before saving updates.");
   const response = await fetch(`${API_BASE}/api/v1/user-state/${encodeURIComponent(updateId)}`, {
     method: "PUT",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { ...await authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(change),
   });
   if (!response.ok) throw new Error("Unable to update saved/read state");
@@ -166,7 +166,7 @@ export async function refreshUpdates(): Promise<RefreshResult> {
   if (!API_BASE) throw new Error("Configure the TechPulse API before refreshing updates.");
   const response = await fetch(`${API_BASE}/api/v1/refresh`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: await authHeaders(),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { detail?: { message?: string } };
