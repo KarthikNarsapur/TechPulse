@@ -31,21 +31,20 @@ The checked-in source registry defines the initial pilot: official RSS/Atom endp
 
 Prefer official vendor/project feeds and APIs. Avoid scraping arbitrary sites when an official source exists. If a source needs a new format, implement a small explicit adapter with tests and documented failure behavior.
 
-## Critical active defect: Refresh updates appears to do nothing
+## Refresh updates: current known-good behavior
 
-The user reports that clicking **Refresh updates** has no visible effect. Investigate and fix this end-to-end; do not treat it as a cosmetic issue.
+The user has confirmed that the **Refresh updates** button is now working. Treat the previously reported no-op as resolved; do not describe it as an active defect or start by re-investigating it without new evidence.
 
-Trace and verify each hop:
+Preserve the end-to-end behavior when changing this feature:
 
-1. **Frontend:** In frontend/src/App.tsx, confirm the click handler fires, the button is enabled, busy/loading state is visible, and success/failure feedback appears.
-2. **API client:** In frontend/src/api.ts, inspect refreshUpdates(). Verify HTTP method/path, authorization header, request/response shape, and non-2xx error handling.
-3. **FastAPI:** Verify POST /api/v1/refresh authenticates the user, validates configuration, sends messages to the ingestion SQS queue, and returns a truthful result (queued count or a clear no-sources/error outcome).
-4. **API Gateway/Terraform:** Confirm the route is deployed, uses the correct Lambda integration and Cognito JWT authorizer, and has required environment variables and IAM permissions.
-5. **Dispatcher/ingestion:** Verify the checked-in source registry is used, enabled sources are queued, SQS invokes ingestion, and source fetch/parse/upsert succeeds.
-6. **Status and feed reload:** Ensure the UI refreshes update data and source status after the request. Queueing is asynchronous: never claim ingestion completed just because SQS accepted a message.
-7. **Regression tests:** Cover successful refresh, unauthenticated requests, missing queue configuration, no enabled sources, SQS errors, frontend busy/success/error states, and registry merging as appropriate.
+1. The frontend handler in frontend/src/App.tsx shows a busy/loading state and visible success or failure feedback.
+2. frontend/src/api.ts sends the authenticated request to POST /api/v1/refresh and handles non-2xx responses clearly.
+3. The FastAPI route authenticates the user, validates required configuration, and queues ingestion jobs for enabled sources.
+4. API Gateway/Terraform route configuration, Lambda environment variables, and least-privilege SQS permissions remain aligned.
+5. Dispatcher and ingestion use the checked-in source registry, queue source jobs, fetch and parse sources, and persist normalized updates.
+6. The UI reloads the feed and source status as appropriate. Ingestion is asynchronous: distinguish a request accepted/queued from a source fetch completing and a new update appearing.
 
-Use tests, logs, CI results, and deployed endpoint behavior to identify the actual failure before editing. Avoid a superficial fix that only changes the label or shows a success toast.
+When modifying refresh behavior, add or preserve regression coverage for success and error paths, and run the relevant checks. Only reopen investigation of the previously fixed issue if a reproducible regression or new evidence appears. Do not claim runtime verification beyond what was actually tested.
 
 ## Feed correctness and seven-day window
 
