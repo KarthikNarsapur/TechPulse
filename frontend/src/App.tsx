@@ -7,6 +7,36 @@ import {
 import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
+type WorkspaceView = "focus" | "shared";
+
+interface DepartmentWorkspace {
+  id: string;
+  label: string;
+  group: string;
+  description: string;
+  technologies: string[];
+}
+
+const ALL_TECHNOLOGIES = ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"];
+const DEPARTMENT_WORKSPACES: DepartmentWorkspace[] = [
+  { id: "tc-data-aiot", label: "TC - Data and AIoT", group: "Tech Consulting", description: "Data platforms, AI, databases, and cloud services", technologies: ["aws", "azure", "gcp"] },
+  { id: "tc-development", label: "TC - Development", group: "Tech Consulting", description: "Application engineering and developer tooling", technologies: ["gitlab", "aws", "azure", "gcp"] },
+  { id: "tc-devops-kubernetes", label: "TC - DevOps & Kubernetes", group: "Tech Consulting", description: "Platform engineering, Kubernetes, IaC, and CI/CD", technologies: ["kubernetes", "terraform", "gitlab", "aws", "azure", "gcp"] },
+  { id: "tc-general", label: "TC - General", group: "Tech Consulting", description: "Shared cloud, infrastructure, and engineering updates", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-infra-security", label: "TC - Infra and Security", group: "Tech Consulting", description: "Cloud infrastructure, identity, network security, and compliance", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform"] },
+  { id: "tc-it-support", label: "TC - IT Support", group: "Tech Consulting", description: "Service health, support lifecycle, incidents, and troubleshooting", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-ld-content", label: "TC - L&D, Content", group: "Tech Consulting", description: "Technical learning, content, and certification updates", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-managed-services", label: "TC - Managed Services", group: "Tech Consulting", description: "Operations, monitoring, backup, patching, and service reliability", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-migration-finops", label: "TC - Migration and FinOps", group: "Tech Consulting", description: "Migration, modernization, cloud infrastructure, and cost optimization", technologies: ["aws", "azure", "gcp", "terraform", "kubernetes"] },
+  { id: "tc-presales", label: "TC - Pre-Sales", group: "Tech Consulting", description: "Solution architecture and technical enablement", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform"] },
+  { id: "ts-ms-programs", label: "TS - MS Programs", group: "Training Sales", description: "Microsoft training program updates", technologies: ["azure"] },
+  { id: "ts-corporate-accounts", label: "TS - Corporate Accounts", group: "Training Sales", description: "Cross-technology updates for corporate accounts", technologies: ALL_TECHNOLOGIES },
+  { id: "ts-inside-sales", label: "TS - Inside Sales Management", group: "Training Sales", description: "Technology changes relevant to inside sales", technologies: ALL_TECHNOLOGIES },
+  { id: "ts-demand-generation", label: "TS - Demand Generation", group: "Training Sales", description: "Technology announcements and training demand signals", technologies: ALL_TECHNOLOGIES },
+  { id: "hr-finance", label: "HR & Finance", group: "HR & OD", description: "Shared engineering updates available for HR & Finance", technologies: ALL_TECHNOLOGIES },
+  { id: "general", label: "General", group: "Company-wide", description: "Cross-company engineering announcements", technologies: ALL_TECHNOLOGIES },
+];
+
 function priorityLabel(priority: Update["priority"]): string {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 }
@@ -24,6 +54,8 @@ export default function App() {
   const [refreshMessage, setRefreshMessage] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [selected, setSelected] = useState("all");
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => window.localStorage.getItem("techpulse.activeWorkspace") ?? "tc-migration-finops");
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("focus");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,7 +96,7 @@ export default function App() {
       .catch(() => {
         if (!cancelled) setError("API unavailable. Showing the preview state.");
       });
-    getUpdates(selected === "all" ? undefined : selected)
+    getUpdates()
       .then((updateList) => {
         if (!cancelled) setUpdates(updateList);
       })
@@ -86,7 +118,7 @@ export default function App() {
       setSubscriptions([]);
     }
     return () => { cancelled = true; };
-  }, [selected, authStatus]);
+  }, [authStatus]);
 
 
   useEffect(() => {
@@ -129,13 +161,17 @@ export default function App() {
     return () => { cancelled = true; };
   }, [authStatus]);
 
+  useEffect(() => {
+    window.localStorage.setItem("techpulse.activeWorkspace", activeWorkspaceId);
+  }, [activeWorkspaceId]);
+
   async function runRefresh() {
     setRefreshBusy(true);
     setRefreshMessage("");
     try {
       const result = await refreshUpdates();
       setRefreshMessage(`Queued polling for ${result.queued_sources} official sources. New updates from the past 7 days will appear as processing finishes; refresh the feed in a few moments.`);
-      const latest = await getUpdates(selected === "all" ? undefined : selected);
+      const latest = await getUpdates();
       setUpdates(latest);
       const statuses = await getSourceStatus();
       setSourceStatuses(statuses);
@@ -177,15 +213,26 @@ export default function App() {
     }
   }
 
+  const activeWorkspace = DEPARTMENT_WORKSPACES.find((workspace) => workspace.id === activeWorkspaceId) ?? DEPARTMENT_WORKSPACES[0];
+
   const visibleUpdates = useMemo(() => {
-    const dataset = updates;
-    return dataset.filter((update) => {
-      const technologyMatches = selected === "all" || update.technology.toLowerCase() === selected;
-      const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category}`
+    const filtered = updates.filter((update) => {
+      const technologyId = update.technology.toLowerCase();
+      const technologyMatches = selected === "all" || technologyId === selected;
+      const departmentMatches = workspaceView === "shared" || (update.department_relevance ?? []).includes(activeWorkspace.id);
+      const technologyMatchesWorkspace = selected !== "all" || activeWorkspace.technologies.includes(technologyId) || workspaceView === "shared";
+      const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category} ${(update.relevance_topics?.[activeWorkspace.id] ?? []).join(" ")}`
         .toLowerCase().includes(search.toLowerCase());
-      return technologyMatches && searchMatches;
+      return technologyMatches && departmentMatches && technologyMatchesWorkspace && searchMatches;
     });
-  }, [updates, selected, search]);
+    if (workspaceView === "focus" && activeWorkspace.id === "tc-migration-finops" && selected === "all") {
+      return filtered.sort((a, b) =>
+        (b.department_relevance_scores?.[activeWorkspace.id] ?? 0) - (a.department_relevance_scores?.[activeWorkspace.id] ?? 0)
+        || new Date(b.published_at ?? b.observed_at ?? 0).getTime() - new Date(a.published_at ?? a.observed_at ?? 0).getTime()
+      );
+    }
+    return filtered;
+  }, [updates, selected, search, workspaceView, activeWorkspace]);
 
   if (authStatus === "checking") {
     return <AuthScreen title="Opening TechPulse" subtitle="Checking the sign-in session…" />;
@@ -213,7 +260,19 @@ export default function App() {
           <span><strong>techpulse</strong><small>ENGINEERING INTELLIGENCE</small></span>
         </a>
         <div className="workspace-label">WORKSPACE <ChevronDown size={13} /></div>
-        <div className="workspace-card"><span className="workspace-dot" /> Platform Engineering <span className="workspace-caret">⌄</span></div>
+        <label className="workspace-picker">
+          <span className="workspace-dot" />
+          <select aria-label="Active department workspace" value={activeWorkspace.id} onChange={(event) => { setActiveWorkspaceId(event.target.value); setSelected("all"); setWorkspaceView("focus"); }}>
+            {["Tech Consulting", "Training Sales", "HR & OD", "Company-wide"].map((group) => (
+              <optgroup key={group} label={group}>
+                {DEPARTMENT_WORKSPACES.filter((workspace) => workspace.group === group).map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>{workspace.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <ChevronDown size={14} />
+        </label>
         <nav className="navigation" aria-label="Main navigation">
           <span className="nav-section">DISCOVER</span>
           <a className="nav-link active" href="#updates"><LayoutDashboard size={17} /> Overview <span className="nav-count">01</span></a>
@@ -237,7 +296,7 @@ export default function App() {
 
       <main className="main-content" id="updates">
         <header className="topbar">
-          <div className="breadcrumbs">Workspace <span>/</span> <strong>Overview</strong></div>
+          <div className="breadcrumbs">Workspace <span>/</span> <strong>{activeWorkspace.label}</strong></div>
           <div className="top-actions">
             <div className="status-pill"><span /> Serverless pilot</div>
             <button className="icon-button" aria-label="Notifications and subscriptions" title="Go to notification settings" onClick={() => document.getElementById("my-technologies")?.scrollIntoView({ behavior: "smooth" })}><Bell size={18} /><i /></button>
@@ -255,6 +314,23 @@ export default function App() {
               <p className="page-subtitle">One feed for the technologies you build, ship, and operate.</p>
             </div>
             <button className="date-button" onClick={() => { void runRefresh(); }} disabled={refreshBusy}><Activity size={15} /> {refreshBusy ? "Refreshing…" : "Refresh updates"} <ChevronDown size={14} /></button>
+          </section>
+
+          <section className="workspace-context-panel" aria-label="Department workspace">
+            <div className="workspace-context-copy">
+              <span className="workspace-context-kicker">{activeWorkspace.group} WORKSPACE</span>
+              <h2>{activeWorkspace.label}</h2>
+              <p>{activeWorkspace.description}. Browse related updates from other teams without leaving this workspace.</p>
+            </div>
+            <div className="workspace-view-switch" role="group" aria-label="Workspace update view">
+              <button className={workspaceView === "focus" ? "workspace-view-button active" : "workspace-view-button"} onClick={() => setWorkspaceView("focus")} aria-pressed={workspaceView === "focus"}>Department focus</button>
+              <button className={workspaceView === "shared" ? "workspace-view-button active" : "workspace-view-button"} onClick={() => setWorkspaceView("shared")} aria-pressed={workspaceView === "shared"}>All shared updates</button>
+            </div>
+            <div className="workspace-technology-note">
+              {workspaceView === "focus"
+                ? `Focused on ${activeWorkspace.technologies.map((id) => technologies.find((technology) => technology.id === id)?.name ?? id).join(" · ")}. Choose any technology below to browse its updates here.`
+                : "Showing the shared update catalog. Your active department workspace stays the same."}
+            </div>
           </section>
 
           <section className="hero-panel">
@@ -343,7 +419,7 @@ export default function App() {
           </section>
           <section className="feed-section">
             <div className="section-heading">
-              <div><div className="eyebrow muted">YOUR FEED</div><h2>Updates from the past 7 days <span className="subtle-count">{visibleUpdates.length}</span></h2></div>
+              <div><div className="eyebrow muted">{activeWorkspace.label.toUpperCase()} · YOUR FEED</div><h2>{workspaceView === "focus" && selected === "all" ? "Department updates" : "Updates from the past 7 days"} <span className="subtle-count">{visibleUpdates.length}</span></h2></div>
               <div className="feed-controls">
                 <label className="search-box"><Search size={16} /><input aria-label="Search updates" placeholder="Search technologies, features..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
                 <button className="filter-button" onClick={() => setSelected("all")}>All updates <ChevronDown size={14} /></button>
@@ -395,6 +471,14 @@ export default function App() {
                     <div className="update-meta"><span>{update.technology}</span><span className="meta-dot">•</span><span>{update.category}</span><span className="meta-dot">•</span><time>{new Date(update.published_at ?? Date.now()).toLocaleDateString()}</time></div>
                     <h3>{update.title}</h3>
                     <p>{update.summary}</p>
+                    {(update.relevance_topics?.[activeWorkspace.id] ?? []).length > 0 && (
+                      <div className="relevance-tags" aria-label="Why this update is relevant to the active workspace">
+                        <span className="relevance-tags-label">MATCHED</span>
+                        {(update.relevance_topics?.[activeWorkspace.id] ?? []).slice(0, 4).map((topic) => (
+                          <span className="relevance-tag" key={topic}>{topic}</span>
+                        ))}
+                      </div>
+                    )}
                     <div className="update-footer">
                       <span className={`priority priority-${update.priority}`}>{priorityLabel(update.priority)} priority</span>
                       <span className="verified-label"><ShieldCheck size={13} /> Source linked</span>

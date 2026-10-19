@@ -8,7 +8,8 @@ from typing import Any
 import boto3
 
 from app.adapters.registry import fetch_source
-from app.models import SourceConfig
+from app.models import NormalizedUpdate, SourceConfig
+from app.relevance import classify_update
 from app.source_registry import load_sources
 from app.storage import PollStatusStore, SourceStore, UpdateStore
 
@@ -103,6 +104,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             source_new = 0
             source_changed = 0
             for update in updates:
+                update = NormalizedUpdate.model_validate(classify_update(update.model_dump(mode="python")))
                 outcome = store.upsert_revision(update)
                 if outcome == "new":
                     source_new += 1

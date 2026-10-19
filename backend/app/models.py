@@ -66,6 +66,10 @@ class NormalizedUpdate(BaseModel):
     external_id: str | None = None
     category: UpdateCategory = UpdateCategory.OTHER
     priority: Priority = Priority.INFORMATIONAL
+    department_relevance: list[str] = Field(default_factory=list)
+    relevance_topics: dict[str, list[str]] = Field(default_factory=dict)
+    department_relevance_scores: dict[str, int] = Field(default_factory=dict)
+    primary_department: str = "general"
 
     @staticmethod
     def normalize_url(url: str) -> str:

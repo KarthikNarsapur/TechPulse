@@ -114,6 +114,8 @@ class UpdateStore:
                     "SET #title = :title, canonical_url = :url, published_at = :published, "
                     "observed_at = :observed, content_text = :content, content_hash = :hash, "
                     "source_id = :source, vendor = :vendor, technology = :technology, "
+                    "department_relevance = :departments, relevance_topics = :topics, "
+                    "department_relevance_scores = :scores, primary_department = :primary_department, "
                     "external_id = :external_id, last_seen_at = :seen, revision = :revision, "
                     "analysis_status = :status REMOVE #summary, #category, #priority, analysis_confidence"
                 ),
@@ -134,6 +136,10 @@ class UpdateStore:
                     ":source": update.source_id,
                     ":vendor": update.vendor,
                     ":technology": update.technology,
+                    ":departments": update.department_relevance,
+                    ":topics": update.relevance_topics,
+                    ":scores": update.department_relevance_scores,
+                    ":primary_department": update.primary_department,
                     ":external_id": update.external_id or "",
                     ":seen": now,
                     ":revision": int(existing.get("revision", 1)) + 1,
