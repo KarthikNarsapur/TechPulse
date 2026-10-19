@@ -32,6 +32,7 @@ locals {
     TECHPULSE_UPDATE_INDEX            = "technology-published-index"
     TECHPULSE_MODEL_ID                = var.ai_model_id
     TECHPULSE_CORS_ORIGINS            = join(",", concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
+    TECHPULSE_INGESTION_QUEUE_URL    = aws_sqs_queue.ingestion.url
     TECHPULSE_ANALYSIS_QUEUE_URL      = aws_sqs_queue.analysis.url
     TECHPULSE_NOTIFICATIONS_QUEUE_URL = aws_sqs_queue.notifications.url
   }
@@ -519,6 +520,12 @@ resource "aws_apigatewayv2_api" "http" {
     allow_headers = ["authorization", "content-type", "idempotency-key"]
     max_age       = 3600
   }
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.http.id
+  name        = "$default"
+  auto_deploy = true
 }
 
 resource "aws_apigatewayv2_integration" "api_lambda" {

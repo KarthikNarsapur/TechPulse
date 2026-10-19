@@ -33,6 +33,6 @@ The workflow creates a versioned, encrypted, public-access-blocked S3 bucket for
 - This workflow provisions AWS resources and may incur charges. The plan must be reviewed before applying.
 - The current Terraform foundation still uses a shared Lambda execution role. Treat this as a dev bootstrap, not production-ready IAM.
 - The default AI model ID and SES sender are blank; AI analysis and email notifications require separate configuration and verification.
-- Cognito is configured for admin-created users only; create pilot users through the Cognito console or a separately approved admin workflow.
+- Cognito self-service sign-up is enabled with email verification. The user pool enforces a 12-character password policy with uppercase, lowercase, numeric, and symbol requirements.
 - Do not use the workflow for `prod` until per-function IAM roles, alarms, DLQ monitoring, source validation, live integration tests, and a reviewed deployment role policy are complete.
 - Do not commit plan files, state files, AWS credentials, or notification secrets.

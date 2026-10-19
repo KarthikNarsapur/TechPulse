@@ -1,4 +1,5 @@
 """FastAPI application served through API Gateway and Mangum."""
+import json
 import os
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -9,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.config import get_settings
-from app.storage import PollStatusStore, SubscriptionStore, UpdateStore, UserStateStore
+from app.source_registry import load_sources
+from app.storage import PollStatusStore, SourceStore, SubscriptionStore, UpdateStore, UserStateStore
 
 settings = get_settings()
 app = FastAPI(
@@ -122,7 +124,8 @@ def technologies() -> dict[str, list[dict[str, str]]]:
 def list_updates(
     technology: str | None = None,
     category: str | None = None,
-    limit: int = Query(default=20, ge=1, le=100),
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=100, ge=1, le=100),
 ) -> dict[str, Any]:
     store = UpdateStore()
     if technology:
@@ -131,6 +134,22 @@ def list_updates(
         result = store.query_all(limit=limit)
     items = result["items"]
     last_key = result.get("last_evaluated_key")
+    cutoff = datetime.now(timezone.utc).timestamp() - days * 86400
+    recent_items = []
+    for item in items:
+        timestamp = item.get("published_at") or item.get("observed_at")
+        if not timestamp:
+            continue
+        try:
+            parsed = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            if parsed.timestamp() < cutoff:
+                continue
+        except (TypeError, ValueError, OverflowError):
+            continue
+        recent_items.append(item)
+    items = recent_items
     if category:
         items = [item for item in items if item.get("category") == category]
     return {
@@ -138,6 +157,37 @@ def list_updates(
         "next_cursor": last_key,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.post("/api/v1/refresh")
+def refresh_updates(request: Request) -> dict[str, Any]:
+    """Queue a source poll for the official sources; callers must be authenticated."""
+    _principal(request)
+    queue_url = os.getenv("TECHPULSE_INGESTION_QUEUE_URL")
+    if not queue_url:
+        raise HTTPException(status_code=503, detail={"message": "Ingestion queue is not configured."})
+
+    # The checked-in registry controls enabled official sources. Persisted entries
+    # may add custom sources, but stale table rows must not disable registry updates.
+    sources_by_id = {source.source_id: source.model_dump(mode="json") for source in load_sources()}
+    table_name = os.getenv("TECHPULSE_SOURCES_TABLE")
+    if table_name:
+        try:
+            for source in SourceStore(table_name).all_enabled():
+                sources_by_id.setdefault(str(source["source_id"]), source)
+        except Exception:
+            pass
+    enabled = [source for source in sources_by_id.values() if source.get("enabled", True)]
+    if not enabled:
+        raise HTTPException(status_code=503, detail={"message": "No enabled sources are configured."})
+
+    queue = boto3.client("sqs", region_name=os.getenv("AWS_REGION", "ap-south-1"))
+    for source in enabled:
+        queue.send_message(
+            QueueUrl=queue_url,
+            MessageBody=json.dumps({"source_id": source["source_id"]}),
+        )
+    return {"queued_sources": len(enabled), "source_ids": [source["source_id"] for source in enabled]}
 
 
 @app.get("/api/v1/updates/{update_id}")

@@ -21,7 +21,7 @@ resource "aws_cognito_user_pool" "main" {
   }
 
   admin_create_user_config {
-    allow_admin_create_user_only = true
+    allow_admin_create_user_only = false
   }
 }
 
@@ -128,6 +128,14 @@ resource "aws_apigatewayv2_route" "subscriptions_put" {
 resource "aws_apigatewayv2_route" "subscriptions_delete" {
   api_id             = aws_apigatewayv2_api.http.id
   route_key          = "DELETE /api/v1/subscriptions/{technology_id}"
+  target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
+resource "aws_apigatewayv2_route" "refresh_updates" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "POST /api/v1/refresh"
   target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id

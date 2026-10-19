@@ -14,15 +14,17 @@ logger.setLevel(logging.INFO)
 
 
 def _sources() -> list[dict[str, Any]]:
+    # Treat the checked-in registry as authoritative for shipped sources, while
+    # retaining enabled custom entries stored in DynamoDB.
+    sources = {source.source_id: source.model_dump(mode="json") for source in load_sources()}
     table = os.getenv("TECHPULSE_SOURCES_TABLE")
     if table:
         try:
-            stored = SourceStore(table).all_enabled()
-            if stored:
-                return stored
+            for stored in SourceStore(table).all_enabled():
+                sources.setdefault(str(stored["source_id"]), stored)
         except Exception:  # noqa: BLE001
-            logger.exception("Unable to load persisted sources; using checked-in registry")
-    return [source.model_dump(mode="json") for source in load_sources()]
+            logger.exception("Unable to load persisted custom sources")
+    return list(sources.values())
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, int]:

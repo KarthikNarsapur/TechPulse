@@ -96,6 +96,7 @@ jobs:
           python -m pip install -r backend/requirements.txt -t /tmp/techpulse-lambda
           rm -rf /tmp/techpulse-lambda/app
           cp -R backend/app /tmp/techpulse-lambda/app
+          cp -R source-registry /tmp/techpulse-lambda/source-registry
           mkdir -p infrastructure/terraform/dist
           (cd /tmp/techpulse-lambda && zip -qr "$GITHUB_WORKSPACE/infrastructure/terraform/dist/api.zip" .)
           cp infrastructure/terraform/dist/api.zip infrastructure/terraform/dist/workers.zip
