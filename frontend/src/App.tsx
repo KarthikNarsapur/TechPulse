@@ -55,6 +55,7 @@ export default function App() {
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [selected, setSelected] = useState("all");
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => window.localStorage.getItem("techpulse.activeWorkspace") ?? "tc-migration-finops");
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("focus");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -260,19 +261,54 @@ export default function App() {
           <span><strong>techpulse</strong><small>ENGINEERING INTELLIGENCE</small></span>
         </a>
         <div className="workspace-label">WORKSPACE <ChevronDown size={13} /></div>
-        <label className="workspace-picker">
-          <span className="workspace-dot" />
-          <select aria-label="Active department workspace" value={activeWorkspace.id} onChange={(event) => { setActiveWorkspaceId(event.target.value); setSelected("all"); setWorkspaceView("focus"); }}>
-            {["Tech Consulting", "Training Sales", "HR & OD", "Company-wide"].map((group) => (
-              <optgroup key={group} label={group}>
-                {DEPARTMENT_WORKSPACES.filter((workspace) => workspace.group === group).map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>{workspace.label}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <ChevronDown size={14} />
-        </label>
+        <div className="workspace-menu">
+          <button
+            type="button"
+            className="workspace-picker"
+            aria-label="Choose department workspace"
+            aria-haspopup="true"
+            aria-expanded={workspaceMenuOpen}
+            onClick={() => setWorkspaceMenuOpen((open) => !open)}
+          >
+            <span className="workspace-dot" />
+            <span className="workspace-picker-label">{activeWorkspace.label}</span>
+            <ChevronDown size={14} />
+          </button>
+          {workspaceMenuOpen && (
+            <>
+              <button className="workspace-menu-backdrop" aria-label="Close workspace menu" onClick={() => setWorkspaceMenuOpen(false)} />
+              <div className="workspace-menu-list" role="menu" aria-label="Department workspaces">
+                {["Tech Consulting", "Training Sales", "HR & OD", "Company-wide"].map((group) => {
+                  const groupWorkspaces = DEPARTMENT_WORKSPACES.filter((workspace) => workspace.group === group);
+                  if (groupWorkspaces.length === 0) return null;
+                  return (
+                    <div className="workspace-menu-group" key={group}>
+                      <div className="workspace-menu-group-label">{group}</div>
+                      {groupWorkspaces.map((workspace) => (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          key={workspace.id}
+                          className={workspace.id === activeWorkspace.id ? "workspace-menu-option active" : "workspace-menu-option"}
+                          aria-current={workspace.id === activeWorkspace.id ? "true" : undefined}
+                          onClick={() => {
+                            setActiveWorkspaceId(workspace.id);
+                            setSelected("all");
+                            setWorkspaceView("focus");
+                            setWorkspaceMenuOpen(false);
+                          }}
+                        >
+                          {workspace.label}
+                          {workspace.id === activeWorkspace.id && <span aria-hidden="true">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
         <nav className="navigation" aria-label="Main navigation">
           <span className="nav-section">DISCOVER</span>
           <a className="nav-link active" href="#updates"><LayoutDashboard size={17} /> Overview <span className="nav-count">01</span></a>
