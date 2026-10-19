@@ -52,3 +52,25 @@ def test_unmatched_update_still_appears_in_shared_workspaces() -> None:
     })
     assert "tc-general" in update["department_relevance"]
     assert "general" in update["department_relevance"]
+
+
+def test_hr_workspace_is_not_a_relevance_destination() -> None:
+    update = classify_update({
+        "title": "Cloud service pricing and billing changes",
+        "technology": "aws",
+        "source_id": "aws.whats_new",
+        "content_text": "Updated cost and budget reporting.",
+    })
+    assert "hr-finance" not in update["department_relevance"]
+
+
+def test_generic_launch_does_not_route_to_sales_workspaces() -> None:
+    update = classify_update({
+        "title": "A new feature is now generally available",
+        "technology": "aws",
+        "source_id": "aws.whats_new",
+        "content_text": "The service now supports a new release.",
+    })
+    assert "ts-demand-generation" not in update["department_relevance"]
+    assert "ts-inside-sales" not in update["department_relevance"]
+    assert "ts-corporate-accounts" not in update["department_relevance"]
