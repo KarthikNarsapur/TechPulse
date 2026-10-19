@@ -25,6 +25,9 @@ frontend/dist/
 infrastructure/terraform/dist/
 infrastructure/terraform/.terraform.lock.hcl
 
+# Kiro
+.kiro/
+
 # OS/editor
 .DS_Store
 .vscode/
