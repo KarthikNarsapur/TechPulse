@@ -320,3 +320,7 @@ h1 { font: 800 clamp(27px,3vw,37px)/1.18 Manrope, sans-serif; letter-spacing: -1
 }
 .update-state-button:hover { border-color: #99f6e4; color: #0f766e; }
 
+
+.relevance-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin: 9px 0 2px; }
+.relevance-tags-label { margin-right: 3px; color: #82919a; font: 500 8px 'DM Mono', monospace; letter-spacing: .7px; }
+.relevance-tag { border: 1px solid #d9ece7; border-radius: 999px; background: #f2faf7; color: #36776e; padding: 3px 7px; font-size: 9px; line-height: 1.2; }
