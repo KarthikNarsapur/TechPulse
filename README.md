@@ -120,6 +120,16 @@ The workspace selector changes the active department view. **Department focus** 
 
 This first iteration uses one shared update catalog and client-side workspace preferences. The active workspace is saved in browser local storage. Workspace relevance is currently a technology-based default, not an authoritative employee authorization or a fully curated per-update department classification. Cross-workspace browsing does not duplicate update records or change the active workspace. Future backend work can persist user workspace preferences and attach reviewed multi-department relevance metadata to updates.
 
+## Department workspaces and relevance
+
+The workspace selector follows the department list: **TC - Data and AIoT**, **TC - Development**, **TC - DevOps & Kubernetes**, **TC - General**, **TC - Infra and Security**, **TC - IT Support**, **TC - L&D, Content**, **TC - Managed Services**, **TC - Migration and FinOps**, and **TC - Pre-Sales**. Training Sales workspaces, HR & Finance, and General are also available.
+
+Each ingested update receives explainable department metadata: `department_relevance`, `relevance_topics`, `department_relevance_scores`, and `primary_department`. The rules use the announcement title, source, technology, category, and available body text. The API also classifies older stored updates at read time, so existing feed items gain relevance labels without requiring a full backfill first.
+
+**TC - Migration and FinOps** weights migration/modernization and cost-management signals most strongly, then infrastructure signals. Terraform and Kubernetes releases receive a baseline relevance boost so relevant platform changes remain discoverable in that workspace. The UI shows matched topics on each card and ranks the migration/FinOps focus feed by its relevance score. The shared view remains available.
+
+These deterministic rules are explainable triage metadata, not a guarantee that an announcement is relevant or an authorization boundary. They should be refined with real feed examples and reviewed by department owners.
+
 ## Architecture and AWS components
 
 | Component | Responsibility |
