@@ -6,7 +6,56 @@ const LOGOUT_URI = (import.meta.env.VITE_COGNITO_LOGOUT_URI as string | undefine
 const VERIFIER_KEY = "techpulse.pkce_verifier";
 const STATE_KEY = "techpulse.oauth_state";
 const ACCESS_TOKEN_KEY = "techpulse.access_token";
+const REFRESH_TOKEN_KEY = "techpulse.refresh_token";
 const ID_TOKEN_KEY = "techpulse.id_token";
+let refreshInFlight: Promise<string | undefined> | undefined;
+
+function tokenExpiresSoon(token: string): boolean {
+  try {
+    const payload = token.split(".")[1];
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(normalized)) as { exp?: number };
+    return !claims.exp || claims.exp * 1000 <= Date.now() + 60_000;
+  } catch {
+    return true;
+  }
+}
+
+async function refreshAccessToken(): Promise<string | undefined> {
+  if (refreshInFlight) return refreshInFlight;
+  const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!DOMAIN || !CLIENT_ID || !refreshToken) return undefined;
+
+  refreshInFlight = (async () => {
+    try {
+      const response = await fetch(`${DOMAIN}/oauth2/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: CLIENT_ID,
+          refresh_token: refreshToken,
+        }),
+      });
+      if (!response.ok) {
+        sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+        sessionStorage.removeItem(ID_TOKEN_KEY);
+        sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+        return undefined;
+      }
+      const tokens = (await response.json()) as { access_token?: string; id_token?: string; refresh_token?: string };
+      if (!tokens.access_token) return undefined;
+      sessionStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
+      if (tokens.id_token) sessionStorage.setItem(ID_TOKEN_KEY, tokens.id_token);
+      return tokens.access_token;
+    } catch {
+      return undefined;
+    } finally {
+      refreshInFlight = undefined;
+    }
+  })();
+  return refreshInFlight;
+}
 
 export function isRemoteApiConfigured(): boolean {
   return Boolean((import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim());
@@ -33,8 +82,10 @@ async function createChallenge(verifier: string): Promise<string> {
   return encodeBase64Url(new Uint8Array(digest));
 }
 
-export function getAccessToken(): string | undefined {
-  return sessionStorage.getItem(ACCESS_TOKEN_KEY) ?? undefined;
+export async function getAccessToken(): Promise<string | undefined> {
+  const token = sessionStorage.getItem(ACCESS_TOKEN_KEY) ?? undefined;
+  if (token && !tokenExpiresSoon(token)) return token;
+  return refreshAccessToken();
 }
 
 export async function beginLogin(): Promise<void> {
@@ -60,7 +111,7 @@ export async function finishLoginCallback(): Promise<boolean> {
   if (!DOMAIN || !CLIENT_ID) return false;
   const url = new URL(window.location.href);
   const code = url.searchParams.get("code");
-  if (!code) return Boolean(getAccessToken());
+  if (!code) return Boolean(await getAccessToken());
 
   const receivedState = url.searchParams.get("state");
   const expectedState = sessionStorage.getItem(STATE_KEY);
@@ -87,6 +138,7 @@ export async function finishLoginCallback(): Promise<boolean> {
   const tokens = (await response.json()) as { access_token?: string; id_token?: string };
   if (!tokens.access_token) throw new Error("Identity provider did not return an access token.");
   sessionStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
+  if (tokens.refresh_token) sessionStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
   if (tokens.id_token) sessionStorage.setItem(ID_TOKEN_KEY, tokens.id_token);
   url.searchParams.delete("code");
   url.searchParams.delete("state");
@@ -97,6 +149,7 @@ export async function finishLoginCallback(): Promise<boolean> {
 
 export function signOut(): void {
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(ID_TOKEN_KEY);
   if (DOMAIN && CLIENT_ID) {
     const query = new URLSearchParams({ client_id: CLIENT_ID, logout_uri: LOGOUT_URI });
