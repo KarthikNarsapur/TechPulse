@@ -1,4 +1,5 @@
 """FastAPI application served through API Gateway and Mangum."""
+import json
 import os
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -166,17 +167,17 @@ def refresh_updates(request: Request) -> dict[str, Any]:
     if not queue_url:
         raise HTTPException(status_code=503, detail={"message": "Ingestion queue is not configured."})
 
-    sources: list[dict[str, Any]] = []
+    # The checked-in registry controls enabled official sources. Persisted entries
+    # may add custom sources, but stale table rows must not disable registry updates.
+    sources_by_id = {source.source_id: source.model_dump(mode="json") for source in load_sources()}
     table_name = os.getenv("TECHPULSE_SOURCES_TABLE")
     if table_name:
         try:
-            sources = SourceStore(table_name).all_enabled()
+            for source in SourceStore(table_name).all_enabled():
+                sources_by_id.setdefault(str(source["source_id"]), source)
         except Exception:
-            sources = []
-    if not sources:
-        sources = [source.model_dump(mode="json") for source in load_sources()]
-
-    enabled = [source for source in sources if source.get("enabled", True)]
+            pass
+    enabled = [source for source in sources_by_id.values() if source.get("enabled", True)]
     if not enabled:
         raise HTTPException(status_code=503, detail={"message": "No enabled sources are configured."})
 
@@ -184,7 +185,7 @@ def refresh_updates(request: Request) -> dict[str, Any]:
     for source in enabled:
         queue.send_message(
             QueueUrl=queue_url,
-            MessageBody=__import__("json").dumps({"source_id": source["source_id"]}),
+            MessageBody=json.dumps({"source_id": source["source_id"]}),
         )
     return {"queued_sources": len(enabled), "source_ids": [source["source_id"] for source in enabled]}
 
