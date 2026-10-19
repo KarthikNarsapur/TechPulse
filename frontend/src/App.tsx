@@ -33,7 +33,6 @@ const DEPARTMENT_WORKSPACES: DepartmentWorkspace[] = [
   { id: "ts-corporate-accounts", label: "TS - Corporate Accounts", group: "Training Sales", description: "Cross-technology updates for corporate accounts", technologies: ALL_TECHNOLOGIES },
   { id: "ts-inside-sales", label: "TS - Inside Sales Management", group: "Training Sales", description: "Technology changes relevant to inside sales", technologies: ALL_TECHNOLOGIES },
   { id: "ts-demand-generation", label: "TS - Demand Generation", group: "Training Sales", description: "Technology announcements and training demand signals", technologies: ALL_TECHNOLOGIES },
-  { id: "hr-finance", label: "HR & Finance", group: "HR & OD", description: "Shared engineering updates available for HR & Finance", technologies: ALL_TECHNOLOGIES },
   { id: "general", label: "General", group: "Company-wide", description: "Cross-company engineering announcements", technologies: ALL_TECHNOLOGIES },
 ];
 
@@ -278,7 +277,7 @@ export default function App() {
             <>
               <button className="workspace-menu-backdrop" aria-label="Close workspace menu" onClick={() => setWorkspaceMenuOpen(false)} />
               <div className="workspace-menu-list" role="menu" aria-label="Department workspaces">
-                {["Tech Consulting", "Training Sales", "HR & OD", "Company-wide"].map((group) => {
+                {["Tech Consulting", "Training Sales", "Company-wide"].map((group) => {
                   const groupWorkspaces = DEPARTMENT_WORKSPACES.filter((workspace) => workspace.group === group);
                   if (groupWorkspaces.length === 0) return null;
                   return (
