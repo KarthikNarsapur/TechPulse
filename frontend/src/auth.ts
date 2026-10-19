@@ -99,7 +99,7 @@ export async function beginLogin(): Promise<void> {
     client_id: CLIENT_ID,
     response_type: "code",
     redirect_uri: REDIRECT_URI,
-    scope: "openid email profile",
+    scope: "openid email profile aws.cognito.signin.user.admin",
     code_challenge_method: "S256",
     code_challenge: challenge,
     state,
