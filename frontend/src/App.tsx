@@ -4,7 +4,7 @@ import {
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
   Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
-import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
+import { DEFAULT_TECHNOLOGIES, getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 type WorkspaceView = "focus" | "shared";
@@ -94,7 +94,7 @@ export default function App() {
         if (!cancelled) setTechnologies(technologyList);
       })
       .catch(() => {
-        if (!cancelled) setError("API unavailable. Showing the preview state.");
+        if (!cancelled) { setTechnologies(DEFAULT_TECHNOLOGIES); setError("The API could not load. Technology filters remain available; updates and account features need a healthy API connection."); }
       });
     getUpdates()
       .then((updateList) => {
@@ -280,7 +280,7 @@ export default function App() {
           <a className="nav-link" href="#my-technologies"><Boxes size={17} /> My technologies</a>
           <a className="nav-link" href="#saved"><Bookmark size={17} /> Saved updates</a>
           <span className="nav-section spaced">YOUR STACK</span>
-          {technologies.map((technology) => (
+          {technologies.filter((technology) => activeWorkspace.technologies.includes(technology.id)).map((technology) => (
             <button key={technology.id} className={selected === technology.id ? "nav-link tech-link selected" : "nav-link tech-link"} onClick={() => setSelected(technology.id)}>
               <span className={`tech-icon ${technology.id}`}>{technology.id === "aws" || technology.id === "azure" || technology.id === "gcp" ? <Cloud size={15} /> : technology.id === "gitlab" ? <GitBranch size={15} /> : <Workflow size={15} />}</span>
               {technology.name}
@@ -428,7 +428,7 @@ export default function App() {
             {refreshMessage && <p className="subscription-message" role="status">{refreshMessage}</p>}
             <div className="technology-filters" id="technologies">
               <button className={selected === "all" ? "filter-chip active" : "filter-chip"} onClick={() => setSelected("all")}>All technologies</button>
-              {technologies.map((technology) => <button key={technology.id} className={selected === technology.id ? "filter-chip active" : "filter-chip"} onClick={() => setSelected(technology.id)}>{technology.name}</button>)}
+              {technologies.filter((technology) => workspaceView === "shared" || activeWorkspace.technologies.includes(technology.id)).map((technology) => <button key={technology.id} className={selected === technology.id ? "filter-chip active" : "filter-chip"} onClick={() => setSelected(technology.id)}>{technology.name}</button>)}
             </div>
             <section className="subscriptions-panel" id="my-technologies">
               <div className="subscription-heading">
