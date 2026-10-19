@@ -164,6 +164,14 @@ jobs:
             exit 1
           fi
 
+      - name: Persist frontend bucket destroy setting
+        if: inputs.action == 'destroy'
+        working-directory: infrastructure/terraform
+        run: |
+          # force_destroy is stored in Terraform state. Updating the configuration
+          # alone does not change the value used by a destroy operation.
+          terraform apply -input=false -auto-approve -target=aws_s3_bucket.frontend
+
       - name: Destroy Terraform infrastructure
         if: inputs.action == 'destroy'
         working-directory: infrastructure/terraform
