@@ -15,6 +15,11 @@ export interface Update {
   summary?: string;
   published_at?: string;
   canonical_url: string;
+  observed_at?: string;
+  department_relevance?: string[];
+  relevance_topics?: Record<string, string[]>;
+  department_relevance_scores?: Record<string, number>;
+  primary_department?: string;
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
