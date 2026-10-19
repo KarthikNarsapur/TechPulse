@@ -1,5 +1,8 @@
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${local.name}-frontend-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${local.name}-frontend-${data.aws_caller_identity.current.account_id}"
+  # Allow disposable non-production environments to be destroyed even when
+  # the frontend bucket still contains deployed assets. Preserve prod data.
+  force_destroy = var.environment != "prod"
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
