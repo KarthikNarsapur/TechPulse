@@ -114,15 +114,15 @@ The React + TypeScript frontend calls the FastAPI backend through API Gateway. T
 
 ## Department workspaces and shared updates
 
-The portal includes department-focused workspaces based on the employee directory. Tech Consulting is the primary focus, with workspaces for TC - Migration and FinOps, TC - DevOps & Kubernetes, TC - General, TC - Data and AIoT, TC - Development, TC - L&D, Content, and TC - Pre-Sales. Training Sales, HR & Finance, and General workspaces are also available.
+The portal includes department-focused workspaces based on the employee directory. Tech Consulting is the primary focus, with workspaces for TC - Migration and FinOps, TC - DevOps & Kubernetes, TC - General, TC - Data and AIoT, TC - Development, TC - L&D, Content, and TC - Pre-Sales. Training Sales and General workspaces are also available.
 
 The workspace selector changes the active department view. **Department focus** narrows the feed to the workspace's default technology set; **All shared updates** exposes the shared catalog without switching the active workspace. Technology chips and search can be used inside either view, so a user in TC - Migration and FinOps can browse Terraform or Kubernetes updates in place.
 
-This first iteration uses one shared update catalog and client-side workspace preferences. The active workspace is saved in browser local storage. Workspace relevance is currently a technology-based default, not an authoritative employee authorization or a fully curated per-update department classification. Cross-workspace browsing does not duplicate update records or change the active workspace. Future backend work can persist user workspace preferences and attach reviewed multi-department relevance metadata to updates.
+This iteration uses one shared update catalog and client-side workspace preferences. The active workspace is saved in browser local storage. Department focus uses per-update relevance classification; the shared catalog is available only through the explicit All shared updates view. Relevance rules are explainable triage metadata, not an authorization boundary. Cross-workspace browsing does not duplicate update records or change the active workspace.
 
 ## Department workspaces and relevance
 
-The workspace selector follows the department list: **TC - Data and AIoT**, **TC - Development**, **TC - DevOps & Kubernetes**, **TC - General**, **TC - Infra and Security**, **TC - IT Support**, **TC - L&D, Content**, **TC - Managed Services**, **TC - Migration and FinOps**, and **TC - Pre-Sales**. Training Sales workspaces, HR & Finance, and General are also available.
+The workspace selector follows the department list: **TC - Data and AIoT**, **TC - Development**, **TC - DevOps & Kubernetes**, **TC - General**, **TC - Infra and Security**, **TC - IT Support**, **TC - L&D, Content**, **TC - Managed Services**, **TC - Migration and FinOps**, and **TC - Pre-Sales**. Training Sales workspaces and General are also available. HR & OD is excluded from the workspace selector.
 
 Each ingested update receives explainable department metadata: `department_relevance`, `relevance_topics`, `department_relevance_scores`, and `primary_department`. The rules use the announcement title, source, technology, category, and available body text. The API also classifies older stored updates at read time, so existing feed items gain relevance labels without requiring a full backfill first.
 
