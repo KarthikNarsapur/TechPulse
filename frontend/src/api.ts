@@ -51,8 +51,8 @@ export async function getUpdates(technology?: string): Promise<Update[]> {
   return (body.items ?? []) as Update[];
 }
 
-function authHeaders(): HeadersInit {
-  const token = getAccessToken();
+async function authHeaders(): Promise<HeadersInit> {
+  const token = await getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
