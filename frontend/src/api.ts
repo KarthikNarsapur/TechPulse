@@ -38,7 +38,7 @@ export async function getTechnologies(): Promise<Technology[]> {
 
 export async function getUpdates(technology?: string): Promise<Update[]> {
   if (!API_BASE) return [];
-  const query = new URLSearchParams();
+  const query = new URLSearchParams({ days: "7", limit: "100" });
   if (technology) query.set("technology", technology);
   const response = await fetch(`${API_BASE}/api/v1/updates?${query.toString()}`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Unable to load updates");
@@ -151,3 +151,21 @@ export async function saveUserState(
   return body.item as UserUpdateState;
 }
 
+
+export interface RefreshResult {
+  queued_sources: number;
+  source_ids: string[];
+}
+
+export async function refreshUpdates(): Promise<RefreshResult> {
+  if (!API_BASE) throw new Error("Configure the TechPulse API before refreshing updates.");
+  const response = await fetch(`${API_BASE}/api/v1/refresh`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as { detail?: { message?: string } };
+    throw new Error(body.detail?.message ?? "Could not start source polling.");
+  }
+  return await response.json() as RefreshResult;
+}
