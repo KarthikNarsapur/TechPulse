@@ -171,7 +171,7 @@ Deployment creates infrastructure, but some integrations need separate configura
 - **AI analysis:** Configure a supported model ID and permissions/provider settings. Analysis will fail if the model is not configured.
 - **Email:** Configure and verify the SES sender address and ensure the AWS account/region has the required SES sending access.
 - **Slack / Teams:** Store webhook values in AWS Secrets Manager and configure subscriptions to reference the corresponding secret IDs. Do not put webhook URLs directly into source code or queue payloads.
-- **Users:** Cognito is configured for the pilot sign-in flow; user provisioning may require an administrator action.
+- **Users:** Cognito self-service sign-up is enabled; users sign up with email and must complete email verification before using authenticated features.
 - **Observability:** Inspect CloudWatch logs, source poll status, SQS retry behavior, and dead-letter queues when updates or notifications are missing.
 
 ## Local development and tests
