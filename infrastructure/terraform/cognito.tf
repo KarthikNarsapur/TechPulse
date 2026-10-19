@@ -133,6 +133,14 @@ resource "aws_apigatewayv2_route" "subscriptions_delete" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
+resource "aws_apigatewayv2_route" "refresh_updates" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "POST /api/v1/refresh"
+  target             = "integrations/${aws_apigatewayv2_integration.api_lambda.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+}
+
 resource "aws_apigatewayv2_route" "source_status" {
   api_id             = aws_apigatewayv2_api.http.id
   route_key          = "GET /api/v1/source-status"
