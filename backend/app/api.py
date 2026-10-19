@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.config import get_settings
+from app.relevance import DEPARTMENT_RULES, classify_update
 from app.source_registry import load_sources
 from app.storage import PollStatusStore, SourceStore, SubscriptionStore, UpdateStore, UserStateStore
 
@@ -124,6 +125,7 @@ def technologies() -> dict[str, list[dict[str, str]]]:
 def list_updates(
     technology: str | None = None,
     category: str | None = None,
+    department: str | None = None,
     days: int = Query(default=7, ge=1, le=90),
     limit: int = Query(default=100, ge=1, le=100),
 ) -> dict[str, Any]:
@@ -152,6 +154,12 @@ def list_updates(
     items = recent_items
     if category:
         items = [item for item in items if item.get("category") == category]
+    items = [classify_update(dict(item)) for item in items]
+    if department:
+        if department not in DEPARTMENT_RULES:
+            raise HTTPException(status_code=422, detail={"message": "Unknown department workspace."})
+        items = [item for item in items if department in item["department_relevance"]]
+        items.sort(key=lambda item: (item["department_relevance_scores"].get(department, 0), item.get("published_at") or item.get("observed_at") or ""), reverse=True)
     return {
         "items": items,
         "next_cursor": last_key,
