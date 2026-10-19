@@ -135,7 +135,7 @@ export async function finishLoginCallback(): Promise<boolean> {
     }),
   });
   if (!response.ok) throw new Error("Could not exchange the sign-in code. Please try again.");
-  const tokens = (await response.json()) as { access_token?: string; id_token?: string };
+  const tokens = (await response.json()) as { access_token?: string; id_token?: string; refresh_token?: string };
   if (!tokens.access_token) throw new Error("Identity provider did not return an access token.");
   sessionStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
   if (tokens.refresh_token) sessionStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
