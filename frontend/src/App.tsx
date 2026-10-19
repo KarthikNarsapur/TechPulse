@@ -17,20 +17,24 @@ interface DepartmentWorkspace {
   technologies: string[];
 }
 
+const ALL_TECHNOLOGIES = ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"];
 const DEPARTMENT_WORKSPACES: DepartmentWorkspace[] = [
-  { id: "tc-migration-finops", label: "TC - Migration and FinOps", group: "Tech Consulting", description: "Cloud migration, infrastructure, and cost optimization", technologies: ["aws", "azure", "gcp", "terraform", "kubernetes"] },
-  { id: "tc-devops-kubernetes", label: "TC - DevOps & Kubernetes", group: "Tech Consulting", description: "Platform engineering, Kubernetes, IaC, and CI/CD", technologies: ["kubernetes", "terraform", "gitlab", "aws", "azure", "gcp"] },
-  { id: "tc-general", label: "TC - General", group: "Tech Consulting", description: "Shared cloud, infrastructure, and security engineering", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"] },
   { id: "tc-data-aiot", label: "TC - Data and AIoT", group: "Tech Consulting", description: "Data platforms, AI, databases, and cloud services", technologies: ["aws", "azure", "gcp"] },
   { id: "tc-development", label: "TC - Development", group: "Tech Consulting", description: "Application engineering and developer tooling", technologies: ["gitlab", "aws", "azure", "gcp"] },
-  { id: "tc-ld-content", label: "TC - L&D, Content", group: "Tech Consulting", description: "Technical learning, content, and certification updates", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"] },
+  { id: "tc-devops-kubernetes", label: "TC - DevOps & Kubernetes", group: "Tech Consulting", description: "Platform engineering, Kubernetes, IaC, and CI/CD", technologies: ["kubernetes", "terraform", "gitlab", "aws", "azure", "gcp"] },
+  { id: "tc-general", label: "TC - General", group: "Tech Consulting", description: "Shared cloud, infrastructure, and engineering updates", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-infra-security", label: "TC - Infra and Security", group: "Tech Consulting", description: "Cloud infrastructure, identity, network security, and compliance", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform"] },
+  { id: "tc-it-support", label: "TC - IT Support", group: "Tech Consulting", description: "Service health, support lifecycle, incidents, and troubleshooting", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-ld-content", label: "TC - L&D, Content", group: "Tech Consulting", description: "Technical learning, content, and certification updates", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-managed-services", label: "TC - Managed Services", group: "Tech Consulting", description: "Operations, monitoring, backup, patching, and service reliability", technologies: ALL_TECHNOLOGIES },
+  { id: "tc-migration-finops", label: "TC - Migration and FinOps", group: "Tech Consulting", description: "Migration, modernization, cloud infrastructure, and cost optimization", technologies: ["aws", "azure", "gcp", "terraform", "kubernetes"] },
   { id: "tc-presales", label: "TC - Pre-Sales", group: "Tech Consulting", description: "Solution architecture and technical enablement", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform"] },
   { id: "ts-ms-programs", label: "TS - MS Programs", group: "Training Sales", description: "Microsoft training program updates", technologies: ["azure"] },
-  { id: "ts-corporate-accounts", label: "TS - Corporate Accounts", group: "Training Sales", description: "Cross-technology updates for corporate accounts", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"] },
-  { id: "ts-inside-sales", label: "TS - Inside Sales Management", group: "Training Sales", description: "Technology changes relevant to inside sales", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"] },
-  { id: "ts-demand-generation", label: "TS - Demand Generation", group: "Training Sales", description: "Technology announcements and training demand signals", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"] },
-  { id: "hr-finance", label: "HR & Finance", group: "HR & OD", description: "Shared engineering updates available for HR & Finance", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"] },
-  { id: "general", label: "General", group: "Company-wide", description: "Cross-company engineering announcements", technologies: ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"] },
+  { id: "ts-corporate-accounts", label: "TS - Corporate Accounts", group: "Training Sales", description: "Cross-technology updates for corporate accounts", technologies: ALL_TECHNOLOGIES },
+  { id: "ts-inside-sales", label: "TS - Inside Sales Management", group: "Training Sales", description: "Technology changes relevant to inside sales", technologies: ALL_TECHNOLOGIES },
+  { id: "ts-demand-generation", label: "TS - Demand Generation", group: "Training Sales", description: "Technology announcements and training demand signals", technologies: ALL_TECHNOLOGIES },
+  { id: "hr-finance", label: "HR & Finance", group: "HR & OD", description: "Shared engineering updates available for HR & Finance", technologies: ALL_TECHNOLOGIES },
+  { id: "general", label: "General", group: "Company-wide", description: "Cross-company engineering announcements", technologies: ALL_TECHNOLOGIES },
 ];
 
 function priorityLabel(priority: Update["priority"]): string {
@@ -212,14 +216,22 @@ export default function App() {
   const activeWorkspace = DEPARTMENT_WORKSPACES.find((workspace) => workspace.id === activeWorkspaceId) ?? DEPARTMENT_WORKSPACES[0];
 
   const visibleUpdates = useMemo(() => {
-    return updates.filter((update) => {
+    const filtered = updates.filter((update) => {
       const technologyId = update.technology.toLowerCase();
       const technologyMatches = selected === "all" || technologyId === selected;
-      const workspaceMatches = workspaceView === "shared" || selected !== "all" || activeWorkspace.technologies.includes(technologyId);
-      const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category}`
+      const departmentMatches = workspaceView === "shared" || (update.department_relevance ?? []).includes(activeWorkspace.id);
+      const technologyMatchesWorkspace = selected !== "all" || activeWorkspace.technologies.includes(technologyId) || workspaceView === "shared";
+      const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category} ${(update.relevance_topics?.[activeWorkspace.id] ?? []).join(" ")}`
         .toLowerCase().includes(search.toLowerCase());
-      return technologyMatches && workspaceMatches && searchMatches;
+      return technologyMatches && departmentMatches && technologyMatchesWorkspace && searchMatches;
     });
+    if (workspaceView === "focus" && activeWorkspace.id === "tc-migration-finops" && selected === "all") {
+      return filtered.sort((a, b) =>
+        (b.department_relevance_scores?.[activeWorkspace.id] ?? 0) - (a.department_relevance_scores?.[activeWorkspace.id] ?? 0)
+        || new Date(b.published_at ?? b.observed_at ?? 0).getTime() - new Date(a.published_at ?? a.observed_at ?? 0).getTime()
+      );
+    }
+    return filtered;
   }, [updates, selected, search, workspaceView, activeWorkspace]);
 
   if (authStatus === "checking") {
