@@ -24,17 +24,17 @@ export interface Update {
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");
 
+export const DEFAULT_TECHNOLOGIES: Technology[] = [
+  { id: "aws", name: "AWS", category: "Cloud" },
+  { id: "azure", name: "Azure", category: "Cloud" },
+  { id: "gcp", name: "Google Cloud", category: "Cloud" },
+  { id: "kubernetes", name: "Kubernetes", category: "Containers" },
+  { id: "terraform", name: "Terraform", category: "Infrastructure as Code" },
+  { id: "gitlab", name: "GitLab", category: "CI/CD" },
+];
+
 export async function getTechnologies(): Promise<Technology[]> {
-  if (!API_BASE) {
-    return [
-      { id: "aws", name: "AWS", category: "Cloud" },
-      { id: "azure", name: "Azure", category: "Cloud" },
-      { id: "gcp", name: "Google Cloud", category: "Cloud" },
-      { id: "kubernetes", name: "Kubernetes", category: "Containers" },
-      { id: "terraform", name: "Terraform", category: "Infrastructure as Code" },
-      { id: "gitlab", name: "GitLab", category: "CI/CD" },
-    ];
-  }
+  if (!API_BASE) return DEFAULT_TECHNOLOGIES;
   const response = await fetch(`${API_BASE}/api/v1/technologies`, { headers: authHeaders() });
   if (!response.ok) throw new Error("Unable to load technologies");
   const body = await response.json();
