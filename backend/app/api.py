@@ -68,16 +68,24 @@ def _principal(request: Request) -> tuple[str, str | None]:
 
 def _verified_email_from_access_token(request: Request) -> str | None:
     """Resolve a verified email through Cognito when it is absent from JWT claims."""
-    event: dict[str, Any] = request.scope.get("aws.event", {})
-    headers = event.get("headers") or {}
-    authorization = str(headers.get("authorization") or headers.get("Authorization") or "")
+    # Use Starlette's normalized request headers rather than depending on the
+    # exact Mangum/API Gateway event shape.
+    authorization = request.headers.get("authorization", "")
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
         return None
-    response = boto3.client(
-        "cognito-idp",
-        region_name=os.getenv("TECHPULSE_AWS_REGION", os.getenv("AWS_REGION", "ap-south-1")),
-    ).get_user(AccessToken=token.strip())
+    try:
+        response = boto3.client(
+            "cognito-idp",
+            region_name=os.getenv("TECHPULSE_AWS_REGION", os.getenv("AWS_REGION", "ap-south-1")),
+        ).get_user(AccessToken=token.strip())
+    except Exception as exc:  # noqa: BLE001
+        # Never log the token or provider response; only the exception class.
+        import logging
+        logging.getLogger(__name__).warning(
+            "Could not resolve subscription email through Cognito (%s)", type(exc).__name__
+        )
+        return None
     attributes = {item.get("Name"): item.get("Value") for item in response.get("UserAttributes", [])}
     if str(attributes.get("email_verified", "")).lower() != "true":
         return None
