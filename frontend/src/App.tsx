@@ -7,19 +7,6 @@ import {
 import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
-const fallbackUpdates: Update[] = [
-  {
-    update_id: "demo-1",
-    title: "Your engineering update feed starts here",
-    technology: "TechPulse",
-    category: "Getting started",
-    priority: "informational",
-    summary: "Connect validated official sources to start collecting release notes, deprecations, security advisories, and product announcements.",
-    published_at: new Date().toISOString(),
-    canonical_url: "https://github.com/KarthikNarsapur/TechPulse",
-  },
-];
-
 function priorityLabel(priority: Update["priority"]): string {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
 }
@@ -191,7 +178,7 @@ export default function App() {
   }
 
   const visibleUpdates = useMemo(() => {
-    const dataset = updates.length > 0 ? updates : fallbackUpdates;
+    const dataset = updates;
     return dataset.filter((update) => {
       const technologyMatches = selected === "all" || update.technology.toLowerCase() === selected;
       const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category}`
@@ -429,7 +416,7 @@ export default function App() {
                   <a className="open-update" href={update.canonical_url} target="_blank" rel="noreferrer" aria-label="Open original announcement"><ArrowUpRight size={17} /></a>
                 </article>
               ))}
-              {!loading && visibleUpdates.length === 0 && <div className="empty-state"><Search size={22} /><strong>No updates found</strong><span>Try another search or technology filter.</span></div>}
+              {!loading && visibleUpdates.length === 0 && <div className="empty-state"><Search size={22} /><strong>No real updates found in the past 7 days</strong><span>Use Refresh updates, then check Source polling status for failed or empty feeds. TechPulse won't show a placeholder as a real announcement.</span></div>}
             </div>
             <div className="feed-end"><span /> YOU'RE ALL CAUGHT UP <span /></div>
           </section>
