@@ -4,7 +4,7 @@ import {
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
   Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
-import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
+import { getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 const fallbackUpdates: Update[] = [
@@ -33,6 +33,8 @@ export default function App() {
   const [userStateMessage, setUserStateMessage] = useState("");
   const [sourceStatusMessage, setSourceStatusMessage] = useState("");
   const [subscriptionBusy, setSubscriptionBusy] = useState<string | null>(null);
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
   const [subscriptionMessage, setSubscriptionMessage] = useState("");
   const [selected, setSelected] = useState("all");
   const [search, setSearch] = useState("");
@@ -140,6 +142,23 @@ export default function App() {
     return () => { cancelled = true; };
   }, [authStatus]);
 
+  async function runRefresh() {
+    setRefreshBusy(true);
+    setRefreshMessage("");
+    try {
+      const result = await refreshUpdates();
+      setRefreshMessage(`Queued polling for ${result.queued_sources} official sources. New updates from the past 7 days will appear as processing finishes; refresh the feed in a few moments.`);
+      const latest = await getUpdates(selected === "all" ? undefined : selected);
+      setUpdates(latest);
+      const statuses = await getSourceStatus();
+      setSourceStatuses(statuses);
+    } catch (cause: unknown) {
+      setRefreshMessage(cause instanceof Error ? cause.message : "Could not start source polling.");
+    } finally {
+      setRefreshBusy(false);
+    }
+  }
+
   async function changeUserState(updateId: string, change: { saved?: boolean; read?: boolean }) {
     setUserStateMessage("");
     try {
@@ -224,7 +243,7 @@ export default function App() {
         </nav>
         <div className="sidebar-bottom">
           <div className="sync-card"><span className="sync-pulse" /><div><strong>Source monitoring</strong><small>Registry configured</small></div><ShieldCheck size={16} /></div>
-          <button className="nav-link"><Settings2 size={17} /> Settings</button>
+          <button className="nav-link" onClick={() => document.getElementById("my-technologies")?.scrollIntoView({ behavior: "smooth" })}><Settings2 size={17} /> Settings & alerts</button>
           <div className="user-card"><div className="avatar">KN</div><div><strong>Engineering user</strong><small>Cloud & DevOps</small></div><Command size={16} /></div>
         </div>
       </aside>
@@ -234,7 +253,7 @@ export default function App() {
           <div className="breadcrumbs">Workspace <span>/</span> <strong>Overview</strong></div>
           <div className="top-actions">
             <div className="status-pill"><span /> Serverless pilot</div>
-            <button className="icon-button" aria-label="Notifications"><Bell size={18} /><i /></button>
+            <button className="icon-button" aria-label="Notifications and subscriptions" title="Go to notification settings" onClick={() => document.getElementById("my-technologies")?.scrollIntoView({ behavior: "smooth" })}><Bell size={18} /><i /></button>
             {authStatus === "authenticated" ? (
               <button className="icon-button" aria-label="Sign out" title="Sign out" onClick={signOut}><LogOut size={17} /></button>
             ) : <div className="mini-avatar">DE</div>}
@@ -248,7 +267,7 @@ export default function App() {
               <h1>Stay ahead of <span>what changes.</span></h1>
               <p className="page-subtitle">One feed for the technologies you build, ship, and operate.</p>
             </div>
-            <button className="date-button"><Activity size={15} /> Live overview <ChevronDown size={14} /></button>
+            <button className="date-button" onClick={() => { void runRefresh(); }} disabled={refreshBusy}><Activity size={15} /> {refreshBusy ? "Refreshing…" : "Refresh updates"} <ChevronDown size={14} /></button>
           </section>
 
           <section className="hero-panel">
@@ -337,12 +356,13 @@ export default function App() {
           </section>
           <section className="feed-section">
             <div className="section-heading">
-              <div><div className="eyebrow muted">YOUR FEED</div><h2>Latest updates <span className="subtle-count">{visibleUpdates.length}</span></h2></div>
+              <div><div className="eyebrow muted">YOUR FEED</div><h2>Updates from the past 7 days <span className="subtle-count">{visibleUpdates.length}</span></h2></div>
               <div className="feed-controls">
                 <label className="search-box"><Search size={16} /><input aria-label="Search updates" placeholder="Search technologies, features..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
                 <button className="filter-button" onClick={() => setSelected("all")}>All updates <ChevronDown size={14} /></button>
               </div>
             </div>
+            {refreshMessage && <p className="subscription-message" role="status">{refreshMessage}</p>}
             <div className="technology-filters" id="technologies">
               <button className={selected === "all" ? "filter-chip active" : "filter-chip"} onClick={() => setSelected("all")}>All technologies</button>
               {technologies.map((technology) => <button key={technology.id} className={selected === technology.id ? "filter-chip active" : "filter-chip"} onClick={() => setSelected(technology.id)}>{technology.name}</button>)}
