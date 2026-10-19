@@ -17,15 +17,18 @@ logger.setLevel(logging.INFO)
 
 
 def _load_registry() -> list[SourceConfig]:
+    # Always load the deployed source registry so newly enabled sources are
+    # recognized immediately; persisted rows can add custom source IDs.
+    sources = {source.source_id: source for source in load_sources()}
     table_name = os.getenv("TECHPULSE_SOURCES_TABLE")
     if table_name:
         try:
-            persisted = [SourceConfig.model_validate(item) for item in SourceStore(table_name).all_enabled()]
-            if persisted:
-                return persisted
+            for item in SourceStore(table_name).all_enabled():
+                source = SourceConfig.model_validate(item)
+                sources.setdefault(source.source_id, source)
         except Exception:  # noqa: BLE001
-            logger.exception("Unable to load persisted registry; using bundled registry")
-    return load_sources()
+            logger.exception("Unable to load persisted custom sources")
+    return list(sources.values())
 
 
 def _enqueue_analysis(update_id: str, content_hash: str, source_id: str) -> None:
