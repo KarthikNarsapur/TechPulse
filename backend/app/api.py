@@ -68,9 +68,20 @@ def _principal(request: Request) -> tuple[str, str | None]:
 
 def _verified_email_from_access_token(request: Request) -> str | None:
     """Resolve a verified email through Cognito when it is absent from JWT claims."""
-    # Use Starlette's normalized request headers rather than depending on the
-    # exact Mangum/API Gateway event shape.
+    # Prefer Starlette's normalized headers. Unit tests and some adapter
+    # paths may only expose the original API Gateway event headers.
     authorization = request.headers.get("authorization", "")
+    if not authorization:
+        event: dict[str, Any] = request.scope.get("aws.event", {})
+        event_headers = event.get("headers") or {}
+        authorization = next(
+            (
+                str(value)
+                for key, value in event_headers.items()
+                if str(key).lower() == "authorization" and value
+            ),
+            "",
+        )
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
         return None
