@@ -1,8 +1,8 @@
 resource "aws_s3_bucket" "frontend" {
   bucket        = "${local.name}-frontend-${data.aws_caller_identity.current.account_id}"
-  # Allow disposable non-production environments to be destroyed even when
-  # the frontend bucket still contains deployed assets. Preserve prod data.
-  force_destroy = var.environment != "prod"
+  # This Terraform stack exposes only disposable dev/staging environments.
+  # Empty deployed frontend assets during an explicit environment destroy.
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
