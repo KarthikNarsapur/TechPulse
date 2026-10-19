@@ -7,7 +7,7 @@ sources:
     source_type: rss
     url: https://aws.amazon.com/about-aws/whats-new/recent/feed/
     poll_interval_minutes: 30
-    enabled: false
+    enabled: true
     trust_level: official
 
   - source_id: azure.updates
@@ -16,7 +16,7 @@ sources:
     source_type: rss
     url: https://www.microsoft.com/releasecommunications/api/v2/azure/rss
     poll_interval_minutes: 30
-    enabled: false
+    enabled: true
     trust_level: official
     # Official Microsoft RSS endpoint identified; keep disabled until parser/entry validation passes.
 
@@ -26,7 +26,7 @@ sources:
     source_type: rss
     url: https://docs.cloud.google.com/feeds/gcp-release-notes.xml
     poll_interval_minutes: 30
-    enabled: false
+    enabled: true
     trust_level: official
 
   - source_id: kubernetes.releases
