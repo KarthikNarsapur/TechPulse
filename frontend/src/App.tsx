@@ -471,6 +471,14 @@ export default function App() {
                     <div className="update-meta"><span>{update.technology}</span><span className="meta-dot">•</span><span>{update.category}</span><span className="meta-dot">•</span><time>{new Date(update.published_at ?? Date.now()).toLocaleDateString()}</time></div>
                     <h3>{update.title}</h3>
                     <p>{update.summary}</p>
+                    {(update.relevance_topics?.[activeWorkspace.id] ?? []).length > 0 && (
+                      <div className="relevance-tags" aria-label="Why this update is relevant to the active workspace">
+                        <span className="relevance-tags-label">MATCHED</span>
+                        {(update.relevance_topics?.[activeWorkspace.id] ?? []).slice(0, 4).map((topic) => (
+                          <span className="relevance-tag" key={topic}>{topic}</span>
+                        ))}
+                      </div>
+                    )}
                     <div className="update-footer">
                       <span className={`priority priority-${update.priority}`}>{priorityLabel(update.priority)} priority</span>
                       <span className="verified-label"><ShieldCheck size={13} /> Source linked</span>
