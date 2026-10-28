@@ -110,7 +110,7 @@ A DynamoDB delivery record provides a conditional claim/lease so duplicate SQS d
 
 ### 7. Display updates in the portal
 
-The React + TypeScript frontend calls the FastAPI backend through API Gateway. The backend reads persisted update, analysis, technology, and subscription data from DynamoDB. The frontend is built as static assets and hosted from Amazon S3 behind CloudFront. Cognito authenticates users; protected API routes use a JWT authorizer.
+The React + TypeScript frontend calls the FastAPI backend through API Gateway. The backend reads persisted update, analysis, technology, and subscription data from DynamoDB. The frontend is built as static assets and hosted on Cloudflare Pages with HTTPS. Cognito authenticates users; protected API routes use a JWT authorizer.
 
 ## Department workspaces and shared updates
 
@@ -135,7 +135,7 @@ These deterministic rules are explainable triage metadata, not a guarantee that 
 | Component | Responsibility |
 |---|---|
 | React + TypeScript | Web portal and subscription UI |
-| Amazon S3 + CloudFront | Static frontend hosting and CDN |
+| Cloudflare Pages | Static frontend hosting, HTTPS, and edge delivery |
 | Amazon API Gateway + FastAPI Lambda | HTTP API |
 | Amazon Cognito | User authentication |
 | EventBridge Scheduler | Periodic source polling trigger |
@@ -174,12 +174,12 @@ Deployment is started manually; it does not require a local checkout.
 2. Select the branch containing the workflow.
 3. Choose the target environment (for example, `dev`) and AWS region (for example, `ap-south-1`).
 4. Choose **Apply** to deploy or update the environment. The workflow packages the Lambda code, bootstraps the encrypted/versioned Terraform state bucket if needed, initializes Terraform, validates configuration, creates a plan, and applies that plan in the same run.
-5. After Terraform succeeds, the workflow updates Lambda function code, builds the frontend using deployed API/Cognito endpoints, syncs the build to S3, invalidates CloudFront, and checks the API health endpoint.
+5. After Terraform succeeds, the workflow updates Lambda function code, builds the frontend using deployed API/Cognito endpoints, deploys the build to Cloudflare Pages, and checks the API health endpoint.
 6. Review the workflow logs and final health-check result. Open the printed frontend URL to test the portal.
 
 Choose **Destroy** only when you intend to remove the selected environment. You must enter the exact confirmation text `DESTROY`. Destruction can remove resources and data, so verify the selected environment before confirming.
 
-The workflow authenticates to AWS with GitHub OIDC and the `AWS_DEPLOY_ROLE_ARN` repository/environment secret. It uses remote S3 state with encryption, versioning, public-access blocking, and native state locking. See [GitHub Actions deployment guide](docs/deploy-github-actions.md) for IAM setup and operational notes.
+The workflow authenticates to AWS with GitHub OIDC and the `AWS_DEPLOY_ROLE_ARN` repository/environment secret. Frontend deployment also requires the GitHub Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, plus a Cloudflare Pages project named `techpulse`. It uses remote S3 state with encryption, versioning, public-access blocking, and native state locking. See [GitHub Actions deployment guide](docs/deploy-github-actions.md) for IAM setup and operational notes.
 
 ## Configuration and operational prerequisites
 
