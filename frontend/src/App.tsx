@@ -7,8 +7,6 @@ import {
 import { DEFAULT_TECHNOLOGIES, getTechnologies, getUpdates, getSubscriptions, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
-type WorkspaceView = "focus" | "shared";
-
 interface DepartmentWorkspace {
   id: string;
   label: string;
@@ -54,7 +52,6 @@ export default function App() {
   const [selected, setSelected] = useState("all");
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => window.localStorage.getItem("techpulse.activeWorkspace") ?? "tc-migration-finops");
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("focus");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -196,20 +193,20 @@ export default function App() {
     const filtered = updates.filter((update) => {
       const technologyId = update.technology.toLowerCase();
       const technologyMatches = selected === "all" || technologyId === selected;
-      const departmentMatches = activeWorkspace.id === "all-workspaces" || workspaceView === "shared" || (update.department_relevance ?? []).includes(activeWorkspace.id);
-      const technologyMatchesWorkspace = selected !== "all" || activeWorkspace.technologies.includes(technologyId) || workspaceView === "shared";
+      const departmentMatches = activeWorkspace.id === "all-workspaces" || (update.department_relevance ?? []).includes(activeWorkspace.id);
+      const technologyMatchesWorkspace = selected !== "all" || activeWorkspace.technologies.includes(technologyId);
       const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category} ${(update.relevance_topics?.[activeWorkspace.id] ?? []).join(" ")}`
         .toLowerCase().includes(search.toLowerCase());
       return technologyMatches && departmentMatches && technologyMatchesWorkspace && searchMatches;
     });
-    if (workspaceView === "focus" && activeWorkspace.id !== "all-workspaces" && selected === "all") {
+    if (activeWorkspace.id !== "all-workspaces" && selected === "all") {
       return filtered.sort((a, b) =>
         (b.department_relevance_scores?.[activeWorkspace.id] ?? 0) - (a.department_relevance_scores?.[activeWorkspace.id] ?? 0)
         || new Date(b.published_at ?? b.observed_at ?? 0).getTime() - new Date(a.published_at ?? a.observed_at ?? 0).getTime()
       );
     }
     return filtered;
-  }, [updates, selected, search, workspaceView, activeWorkspace]);
+  }, [updates, selected, search, activeWorkspace]);
 
   if (authStatus === "checking") {
     return <AuthScreen title="Opening TechPulse" subtitle="Checking the sign-in session…" />;
@@ -334,14 +331,10 @@ export default function App() {
               <h2>{activeWorkspace.label}</h2>
               <p>{activeWorkspace.description}. Browse updates matched to this workspace, or select All workspaces to see the full catalog.</p>
             </div>
-            <div className="workspace-view-switch" role="group" aria-label="Workspace update view">
-              <button className={workspaceView === "focus" ? "workspace-view-button active" : "workspace-view-button"} onClick={() => setWorkspaceView("focus")} aria-pressed={workspaceView === "focus"}>Department focus</button>
-              <button className={workspaceView === "shared" ? "workspace-view-button active" : "workspace-view-button"} onClick={() => setWorkspaceView("shared")} aria-pressed={workspaceView === "shared"}>All shared updates</button>
-            </div>
             <div className="workspace-technology-note">
-              {workspaceView === "focus"
-                ? `Focused on model-matched updates for ${activeWorkspace.label}. Choose a technology below to narrow the feed.`
-                : activeWorkspace.id === "all-workspaces" ? "Showing updates across every workspace and technology." : "Showing the shared update catalog. Your active department workspace stays the same."}
+              {activeWorkspace.id === "all-workspaces"
+                ? "Showing updates across every workspace and technology."
+                : `Showing only model-matched updates for ${activeWorkspace.label}. Select All workspaces to browse updates for other departments.`}
             </div>
           </section>
 
@@ -396,7 +389,7 @@ export default function App() {
           </section>
           <section className="feed-section">
             <div className="section-heading">
-              <div><div className="eyebrow muted">{activeWorkspace.label.toUpperCase()} · YOUR FEED</div><h2>{workspaceView === "focus" && selected === "all" ? "Department updates" : "Updates from the past 7 days"} <span className="subtle-count">{visibleUpdates.length}</span></h2></div>
+              <div><div className="eyebrow muted">{activeWorkspace.label.toUpperCase()} · YOUR FEED</div><h2>{selected === "all" && activeWorkspace.id !== "all-workspaces" ? "Department updates" : "Updates from the past 7 days"} <span className="subtle-count">{visibleUpdates.length}</span></h2></div>
               <div className="feed-controls">
                 <label className="search-box"><Search size={16} /><input aria-label="Search updates" placeholder="Search technologies, features..." value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>⌘ K</kbd></label>
                 <button className="filter-button" onClick={() => setSelected("all")}>All updates <ChevronDown size={14} /></button>
@@ -405,7 +398,7 @@ export default function App() {
             {refreshMessage && <p className="subscription-message" role="status">{refreshMessage}</p>}
             <div className="technology-filters" id="technologies">
               <button className={selected === "all" ? "filter-chip active" : "filter-chip"} onClick={() => setSelected("all")}>All technologies</button>
-              {technologies.filter((technology) => workspaceView === "shared" || activeWorkspace.technologies.includes(technology.id)).map((technology) => <button key={technology.id} className={selected === technology.id ? "filter-chip active" : "filter-chip"} onClick={() => setSelected(technology.id)}>{technology.name}</button>)}
+              {technologies.filter((technology) => activeWorkspace.id === "all-workspaces" || activeWorkspace.technologies.includes(technology.id)).map((technology) => <button key={technology.id} className={selected === technology.id ? "filter-chip active" : "filter-chip"} onClick={() => setSelected(technology.id)}>{technology.name}</button>)}
             </div>
             <section className="subscriptions-panel" id="my-technologies">
               <div className="subscription-heading">
