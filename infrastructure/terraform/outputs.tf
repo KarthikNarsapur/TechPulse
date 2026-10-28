@@ -18,10 +18,5 @@ output "aws_account_id" {
 
 output "frontend_bucket_name" {
   value       = aws_s3_bucket.frontend.bucket
-  description = "Private S3 bucket that stores built frontend assets."
-}
-
-output "cloudfront_distribution_id" {
-  value       = aws_cloudfront_distribution.frontend.id
-  description = "CloudFront distribution ID for frontend cache invalidation."
+  description = "S3 bucket that stores and serves the public static frontend assets."
 }
