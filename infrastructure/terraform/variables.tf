@@ -56,12 +56,12 @@ variable "ai_model_id" {
   default     = ""
 }
 
-variable "cloudflare_pages_url" {
-  description = "Public HTTPS URL of the Cloudflare Pages project, e.g. https://techpulse.pages.dev."
+variable "cloudflare_frontend_url" {
+  description = "Public HTTPS URL of the Cloudflare Workers frontend."
   type        = string
-  default     = "https://techpulse.pages.dev"
+  default     = "https://techpulse.narsapurkarthik.workers.dev"
   validation {
-    condition     = startswith(var.cloudflare_pages_url, "https://")
-    error_message = "cloudflare_pages_url must use HTTPS."
+    condition     = startswith(var.cloudflare_frontend_url, "https://")
+    error_message = "cloudflare_frontend_url must use HTTPS."
   }
 }
