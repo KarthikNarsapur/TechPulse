@@ -226,10 +226,8 @@ jobs:
         run: |
           set -euo pipefail
           BUCKET="$(terraform -chdir=infrastructure/terraform output -raw frontend_bucket_name)"
-          DIST_ID="$(terraform -chdir=infrastructure/terraform output -raw cloudfront_distribution_id)"
           aws s3 sync frontend/dist/ "s3://$BUCKET/" --delete
-          aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*"
-          echo "TechPulse frontend: $FRONTEND_URL"
+          echo "TechPulse frontend (S3 website, HTTP): $FRONTEND_URL"
 
       - name: Verify API health
         if: inputs.action == 'apply'
