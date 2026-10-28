@@ -65,3 +65,25 @@ variable "cloudflare_frontend_url" {
     error_message = "cloudflare_frontend_url must use HTTPS."
   }
 }
+
+variable "workspace_relevance_provider" {
+  description = "Workspace relevance provider: anthropic or deterministic."
+  type        = string
+  default     = "anthropic"
+  validation {
+    condition     = contains(["anthropic", "deterministic"], var.workspace_relevance_provider)
+    error_message = "workspace_relevance_provider must be anthropic or deterministic."
+  }
+}
+
+variable "workspace_relevance_secret_name" {
+  description = "Secrets Manager secret name containing the Anthropic API key."
+  type        = string
+  default     = ""
+}
+
+variable "workspace_relevance_model_id" {
+  description = "Anthropic model ID used to classify workspace relevance."
+  type        = string
+  default     = "claude-3-5-haiku-latest"
+}
