@@ -232,7 +232,7 @@ jobs:
             echo "Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in GitHub Actions secrets." >&2
             exit 1
           fi
-          npx --yes wrangler pages deploy frontend/dist --project-name techpulse --branch main
+          npx --yes wrangler deploy --config wrangler.jsonc
           echo "TechPulse frontend: $FRONTEND_URL"
 
       - name: Verify API health
