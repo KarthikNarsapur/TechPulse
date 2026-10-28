@@ -70,6 +70,8 @@ class NormalizedUpdate(BaseModel):
     relevance_topics: dict[str, list[str]] = Field(default_factory=dict)
     department_relevance_scores: dict[str, int] = Field(default_factory=dict)
     primary_department: str = "general"
+    relevance_provider: str | None = None
+    relevance_model_id: str | None = None
 
     @staticmethod
     def normalize_url(url: str) -> str:
