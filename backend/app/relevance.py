@@ -30,7 +30,9 @@ DEPARTMENT_RULES: dict[str, tuple[tuple[str, ...], ...]] = {
 
 
 def classify_update(item: dict[str, Any]) -> dict[str, Any]:
-    """Attach department IDs, matching topics, and transparent relevance scores."""
+    """Attach department relevance, preserving successful model classifications."""
+    if item.get("relevance_provider") == "anthropic" and isinstance(item.get("department_relevance"), list):
+        return item
     title = str(item.get("title") or "")
     body = str(item.get("content_text") or item.get("summary") or "")
     technology = str(item.get("technology") or "").lower()
