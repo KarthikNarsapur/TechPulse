@@ -41,8 +41,8 @@ resource "aws_cognito_user_pool_client" "web" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile", "aws.cognito.signin.user.admin"]
-  callback_urls                        = distinct(concat(var.cognito_callback_urls, ["${trimsuffix(var.cloudflare_pages_url, "/")}/"]))
-  logout_urls                          = distinct(concat(var.cognito_logout_urls, ["${trimsuffix(var.cloudflare_pages_url, "/")}/"]))
+  callback_urls                        = distinct(concat(var.cognito_callback_urls, ["${trimsuffix(var.cloudflare_frontend_url, "/")}/"]))
+  logout_urls                          = distinct(concat(var.cognito_logout_urls, ["${trimsuffix(var.cloudflare_frontend_url, "/")}/"]))
   supported_identity_providers         = ["COGNITO"]
   access_token_validity                = 60
   id_token_validity                    = 60
