@@ -267,7 +267,6 @@ export default function App() {
                           onClick={() => {
                             setActiveWorkspaceId(workspace.id);
                             setSelected("all");
-                            setWorkspaceView("focus");
                             setWorkspaceMenuOpen(false);
                           }}
                         >
