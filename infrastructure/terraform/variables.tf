@@ -85,5 +85,5 @@ variable "workspace_relevance_secret_name" {
 variable "workspace_relevance_model_id" {
   description = "Anthropic model ID used to classify workspace relevance."
   type        = string
-  default     = "claude-3-5-haiku-latest"
+  default     = "claude-haiku-5-5"
 }
