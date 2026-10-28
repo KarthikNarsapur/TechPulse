@@ -31,7 +31,7 @@ locals {
     TECHPULSE_SES_FROM_ADDRESS        = var.ses_from_address
     TECHPULSE_UPDATE_INDEX            = "technology-published-index"
     TECHPULSE_MODEL_ID                = var.ai_model_id
-    TECHPULSE_CORS_ORIGINS            = join(",", concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
+    TECHPULSE_CORS_ORIGINS            = join(",", concat(var.frontend_allowed_origins, ["http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"]))
     TECHPULSE_INGESTION_QUEUE_URL    = aws_sqs_queue.ingestion.url
     TECHPULSE_ANALYSIS_QUEUE_URL      = aws_sqs_queue.analysis.url
     TECHPULSE_NOTIFICATIONS_QUEUE_URL = aws_sqs_queue.notifications.url
@@ -515,7 +515,7 @@ resource "aws_apigatewayv2_api" "http" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = distinct(concat(var.frontend_allowed_origins, ["https://${aws_cloudfront_distribution.frontend.domain_name}"]))
+    allow_origins = distinct(concat(var.frontend_allowed_origins, ["http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"]))
     allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_headers = ["authorization", "content-type", "idempotency-key"]
     max_age       = 3600
