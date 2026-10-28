@@ -41,10 +41,8 @@ resource "aws_cognito_user_pool_client" "web" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile", "aws.cognito.signin.user.admin"]
-  # S3 website endpoints are HTTP-only. Cognito hosted UI requires HTTPS for non-localhost callbacks,
-  # so only configured callback URLs (localhost by default) are registered until an HTTPS frontend is available.
-  callback_urls                        = var.cognito_callback_urls
-  logout_urls                          = var.cognito_logout_urls
+  callback_urls                        = distinct(concat(var.cognito_callback_urls, ["${trimsuffix(var.cloudflare_pages_url, "/")}/"]))
+  logout_urls                          = distinct(concat(var.cognito_logout_urls, ["${trimsuffix(var.cloudflare_pages_url, "/")}/"]))
   supported_identity_providers         = ["COGNITO"]
   access_token_validity                = 60
   id_token_validity                    = 60
