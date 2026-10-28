@@ -4,7 +4,7 @@ import {
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
   Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
-import { DEFAULT_TECHNOLOGIES, getTechnologies, getUpdates, getSubscriptions, getSourceStatus, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type SourcePollStatus, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
+import { DEFAULT_TECHNOLOGIES, getTechnologies, getUpdates, getSubscriptions, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 type WorkspaceView = "focus" | "shared";
@@ -19,6 +19,7 @@ interface DepartmentWorkspace {
 
 const ALL_TECHNOLOGIES = ["aws", "azure", "gcp", "kubernetes", "terraform", "gitlab"];
 const DEPARTMENT_WORKSPACES: DepartmentWorkspace[] = [
+  { id: "all-workspaces", label: "All workspaces", group: "All workspaces", description: "All departments and technologies across the company", technologies: ALL_TECHNOLOGIES },
   { id: "tc-data-aiot", label: "TC - Data and AIoT", group: "Tech Consulting", description: "Data platforms, AI, databases, and cloud services", technologies: ["aws", "azure", "gcp"] },
   { id: "tc-development", label: "TC - Development", group: "Tech Consulting", description: "Application engineering and developer tooling", technologies: ["gitlab", "aws", "azure", "gcp"] },
   { id: "tc-devops-kubernetes", label: "TC - DevOps & Kubernetes", group: "Tech Consulting", description: "Platform engineering, Kubernetes, IaC, and CI/CD", technologies: ["kubernetes", "terraform", "gitlab", "aws", "azure", "gcp"] },
@@ -44,10 +45,8 @@ export default function App() {
   const [technologies, setTechnologies] = useState<Technology[]>([]);
   const [updates, setUpdates] = useState<Update[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [sourceStatuses, setSourceStatuses] = useState<SourcePollStatus[]>([]);
   const [userStates, setUserStates] = useState<UserUpdateState[]>([]);
   const [userStateMessage, setUserStateMessage] = useState("");
-  const [sourceStatusMessage, setSourceStatusMessage] = useState("");
   const [subscriptionBusy, setSubscriptionBusy] = useState<string | null>(null);
   const [refreshBusy, setRefreshBusy] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
@@ -123,26 +122,6 @@ export default function App() {
 
   useEffect(() => {
     if (authStatus !== "authenticated") {
-      setSourceStatuses([]);
-      setSourceStatusMessage("");
-      return;
-    }
-    let cancelled = false;
-    getSourceStatus()
-      .then((items) => {
-        if (!cancelled) {
-          setSourceStatuses(items);
-          setSourceStatusMessage("");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setSourceStatusMessage("Source polling status is currently unavailable.");
-      });
-    return () => { cancelled = true; };
-  }, [authStatus]);
-
-  useEffect(() => {
-    if (authStatus !== "authenticated") {
       setUserStates([]);
       setUserStateMessage("");
       return;
@@ -173,8 +152,6 @@ export default function App() {
       setRefreshMessage(`Queued polling for ${result.queued_sources} official sources. New updates from the past 7 days will appear as processing finishes; refresh the feed in a few moments.`);
       const latest = await getUpdates();
       setUpdates(latest);
-      const statuses = await getSourceStatus();
-      setSourceStatuses(statuses);
     } catch (cause: unknown) {
       setRefreshMessage(cause instanceof Error ? cause.message : "Could not start source polling.");
     } finally {
@@ -219,13 +196,13 @@ export default function App() {
     const filtered = updates.filter((update) => {
       const technologyId = update.technology.toLowerCase();
       const technologyMatches = selected === "all" || technologyId === selected;
-      const departmentMatches = workspaceView === "shared" || (update.department_relevance ?? []).includes(activeWorkspace.id);
+      const departmentMatches = activeWorkspace.id === "all-workspaces" || workspaceView === "shared" || (update.department_relevance ?? []).includes(activeWorkspace.id);
       const technologyMatchesWorkspace = selected !== "all" || activeWorkspace.technologies.includes(technologyId) || workspaceView === "shared";
       const searchMatches = `${update.title} ${update.summary ?? "Analysis is pending. Open the official announcement for full details."} ${update.technology} ${update.category} ${(update.relevance_topics?.[activeWorkspace.id] ?? []).join(" ")}`
         .toLowerCase().includes(search.toLowerCase());
       return technologyMatches && departmentMatches && technologyMatchesWorkspace && searchMatches;
     });
-    if (workspaceView === "focus" && activeWorkspace.id === "tc-migration-finops" && selected === "all") {
+    if (workspaceView === "focus" && activeWorkspace.id !== "all-workspaces" && selected === "all") {
       return filtered.sort((a, b) =>
         (b.department_relevance_scores?.[activeWorkspace.id] ?? 0) - (a.department_relevance_scores?.[activeWorkspace.id] ?? 0)
         || new Date(b.published_at ?? b.observed_at ?? 0).getTime() - new Date(a.published_at ?? a.observed_at ?? 0).getTime()
@@ -277,7 +254,7 @@ export default function App() {
             <>
               <button className="workspace-menu-backdrop" aria-label="Close workspace menu" onClick={() => setWorkspaceMenuOpen(false)} />
               <div className="workspace-menu-list" role="menu" aria-label="Department workspaces">
-                {["Tech Consulting", "Training Sales", "Company-wide"].map((group) => {
+                {["All workspaces", "Tech Consulting", "Training Sales", "Company-wide"].map((group) => {
                   const groupWorkspaces = DEPARTMENT_WORKSPACES.filter((workspace) => workspace.group === group);
                   if (groupWorkspaces.length === 0) return null;
                   return (
@@ -355,7 +332,7 @@ export default function App() {
             <div className="workspace-context-copy">
               <span className="workspace-context-kicker">{activeWorkspace.group} WORKSPACE</span>
               <h2>{activeWorkspace.label}</h2>
-              <p>{activeWorkspace.description}. Browse related updates from other teams without leaving this workspace.</p>
+              <p>{activeWorkspace.description}. Browse updates matched to this workspace, or select All workspaces to see the full catalog.</p>
             </div>
             <div className="workspace-view-switch" role="group" aria-label="Workspace update view">
               <button className={workspaceView === "focus" ? "workspace-view-button active" : "workspace-view-button"} onClick={() => setWorkspaceView("focus")} aria-pressed={workspaceView === "focus"}>Department focus</button>
@@ -363,8 +340,8 @@ export default function App() {
             </div>
             <div className="workspace-technology-note">
               {workspaceView === "focus"
-                ? `Focused on ${activeWorkspace.technologies.map((id) => technologies.find((technology) => technology.id === id)?.name ?? id).join(" · ")}. Choose any technology below to browse its updates here.`
-                : "Showing the shared update catalog. Your active department workspace stays the same."}
+                ? `Focused on model-matched updates for ${activeWorkspace.label}. Choose a technology below to narrow the feed.`
+                : activeWorkspace.id === "all-workspaces" ? "Showing updates across every workspace and technology." : "Showing the shared update catalog. Your active department workspace stays the same."}
             </div>
           </section>
 
@@ -390,41 +367,6 @@ export default function App() {
             <StatCard icon={<Bell size={17} />} label="DELIVERY CHANNELS" value="03" detail="Portal · Email · Chat-ready" color="blue" />
           </section>
 
-
-          <section className="source-health-panel" aria-label="Source polling health">
-            <div className="subscription-heading">
-              <div><div className="eyebrow muted">INGESTION HEALTH</div><h2>Source polling status</h2></div>
-              <span className="subscription-count">{sourceStatuses.length} tracked</span>
-            </div>
-            {authStatus !== "authenticated" ? (
-              <p className="subscription-hint">Sign in to view durable source polling checkpoints.</p>
-            ) : sourceStatusMessage ? (
-              <p className="subscription-message" role="status">{sourceStatusMessage}</p>
-            ) : sourceStatuses.length === 0 ? (
-              <p className="subscription-hint">No poll checkpoints yet. They appear after the first source poll completes.</p>
-            ) : (
-              <div className="source-status-list">
-                {sourceStatuses.map((source) => (
-                  <div className="source-status-row" key={source.source_id}>
-                    <div className={`source-status-dot ${source.poll_status ?? "unknown"}`} />
-                    <div className="source-status-copy">
-                      <strong>{source.source_id}</strong>
-                      <small>
-                        {source.last_poll_success_at
-                          ? `Last success ${new Date(source.last_poll_success_at).toLocaleString()}`
-                          : source.last_poll_completed_at
-                            ? `Last attempt ${new Date(source.last_poll_completed_at).toLocaleString()}`
-                            : "Not polled yet"}
-                        {source.last_poll_error_type ? ` · ${source.last_poll_error_type}` : ""}
-                      </small>
-                    </div>
-                    <span className={`source-status-label ${source.poll_status ?? "unknown"}`}>{source.poll_status ?? "pending"}</span>
-                    <span className="source-status-count">{source.last_poll_fetched ?? 0} fetched</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
 
           <section className="source-health-panel" id="saved" aria-label="Saved updates">
             <div className="subscription-heading">
@@ -535,7 +477,7 @@ export default function App() {
                   <a className="open-update" href={update.canonical_url} target="_blank" rel="noreferrer" aria-label="Open original announcement"><ArrowUpRight size={17} /></a>
                 </article>
               ))}
-              {!loading && visibleUpdates.length === 0 && <div className="empty-state"><Search size={22} /><strong>No real updates found in the past 7 days</strong><span>Use Refresh updates, then check Source polling status for failed or empty feeds. TechPulse won't show a placeholder as a real announcement.</span></div>}
+              {!loading && visibleUpdates.length === 0 && <div className="empty-state"><Search size={22} /><strong>No real updates found in the past 7 days</strong><span>Try Refresh updates later. TechPulse only shows real announcements from configured sources.</span></div>}
             </div>
             <div className="feed-end"><span /> YOU'RE ALL CAUGHT UP <span /></div>
           </section>
