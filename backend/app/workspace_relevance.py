@@ -113,12 +113,16 @@ def _classify_anthropic(item: dict[str, Any]) -> dict[str, Any]:
             "relevance_topics": {},
             "department_relevance_scores": {},
             "primary_department": "",
+            "relevance_provider": "anthropic",
+            "relevance_model_id": model,
         }
     return {
         "department_relevance": sorted(set(relevance)),
         "relevance_topics": topics,
         "department_relevance_scores": scores,
         "primary_department": result.get("primary_department") if result.get("primary_department") in relevance else max(scores, key=scores.get) if scores else relevance[0],
+        "relevance_provider": "anthropic",
+        "relevance_model_id": model,
     }
 
 
