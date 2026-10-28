@@ -22,6 +22,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
 }
 
 output "frontend_url" {
-  description = "Public HTTPS URL for the TechPulse Cloudflare Pages frontend."
-  value       = trimsuffix(var.cloudflare_pages_url, "/")
+  description = "Public HTTPS URL for the TechPulse Cloudflare Workers frontend."
+  value       = trimsuffix(var.cloudflare_frontend_url, "/")
 }
