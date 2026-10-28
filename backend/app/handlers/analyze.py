@@ -189,13 +189,15 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     ":confidence": result.confidence,
                 },
             )
-            if model_id:
-                _enqueue_subscriber_notifications(
-                    update,
-                    result,
-                    priority=priority.value,
-                    content_hash=content_hash,
-                )
+            # Email/chat alerts must not depend on Bedrock being configured. The
+            # deterministic fallback result is still sufficient to notify subscribers
+            # about a newly ingested official update; SES must have a verified sender.
+            _enqueue_subscriber_notifications(
+                update,
+                result,
+                priority=priority.value,
+                content_hash=content_hash,
+            )
             logger.info(json.dumps({
                 "event": "analysis_completed",
                 "update_id": update_id,
