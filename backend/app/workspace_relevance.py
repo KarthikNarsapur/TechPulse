@@ -61,7 +61,7 @@ def _anthropic_api_key() -> str:
 
 def _classify_anthropic(item: dict[str, Any]) -> dict[str, Any]:
     api_key = _anthropic_api_key()
-    model = os.getenv("TECHPULSE_RELEVANCE_MODEL_ID", "claude-3-5-haiku-latest")
+    model = os.getenv("TECHPULSE_RELEVANCE_MODEL_ID", "claude-haiku-5-5")
     prompt = {
         "task": "Match this official cloud/DevOps announcement to relevant TechPulse department workspaces.",
         "instructions": [
