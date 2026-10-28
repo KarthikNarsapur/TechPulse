@@ -48,6 +48,7 @@ jobs:
       AWS_REGION: ${{ inputs.aws_region }}
       TF_VAR_aws_region: ${{ inputs.aws_region }}
       TF_VAR_environment: ${{ inputs.environment }}
+      TF_VAR_ses_from_address: ${{ secrets.TECHPULSE_SES_FROM_ADDRESS }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
 
