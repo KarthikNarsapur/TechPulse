@@ -17,6 +17,7 @@ data "aws_partition" "current" {}
 locals {
   name                  = "${var.project_name}-${var.environment}"
   cognito_domain_prefix = var.cognito_domain_prefix != "" ? var.cognito_domain_prefix : "${var.project_name}-${var.environment}-${data.aws_caller_identity.current.account_id}"
+  relevance_secret_name = var.workspace_relevance_secret_name != "" ? var.workspace_relevance_secret_name : "${local.name}-anthropic-api-key"
   common_environment = {
     TECHPULSE_ENVIRONMENT             = var.environment
     TECHPULSE_AWS_REGION              = var.aws_region
@@ -31,6 +32,9 @@ locals {
     TECHPULSE_SES_FROM_ADDRESS        = var.ses_from_address
     TECHPULSE_UPDATE_INDEX            = "technology-published-index"
     TECHPULSE_MODEL_ID                = var.ai_model_id
+    TECHPULSE_RELEVANCE_PROVIDER      = var.workspace_relevance_provider
+    TECHPULSE_RELEVANCE_SECRET_ID     = local.relevance_secret_name
+    TECHPULSE_RELEVANCE_MODEL_ID      = var.workspace_relevance_model_id
     TECHPULSE_CORS_ORIGINS            = join(",", concat(var.frontend_allowed_origins, [trimsuffix(var.cloudflare_frontend_url, "/")]))
     TECHPULSE_INGESTION_QUEUE_URL    = aws_sqs_queue.ingestion.url
     TECHPULSE_ANALYSIS_QUEUE_URL      = aws_sqs_queue.analysis.url
@@ -330,7 +334,7 @@ resource "aws_iam_role_policy" "lambda_ai_email" {
       {
         Effect = "Allow"
         Action = ["secretsmanager:GetSecretValue"]
-        Resource = ["arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:techpulse-${var.environment}-notifications-*"]
+        Resource = ["arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:techpulse-${var.environment}-notifications-*", "arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${local.relevance_secret_name}*"]
       }
     ]
   })
