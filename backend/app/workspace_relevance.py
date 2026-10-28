@@ -14,7 +14,7 @@ from typing import Any
 import boto3
 import httpx
 
-from app.relevance import DEPARTMENT_RULES, classify_update
+from app.relevance import classify_update
 
 logger = logging.getLogger(__name__)
 
