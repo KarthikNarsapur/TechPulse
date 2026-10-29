@@ -1,4 +1,5 @@
 """FastAPI application served through API Gateway and Mangum."""
+
 import json
 import os
 from datetime import datetime, timezone
@@ -61,7 +62,10 @@ def _principal(request: Request) -> tuple[str, str | None]:
     if not user_id:
         raise HTTPException(
             status_code=401,
-            detail={"code": "UNAUTHENTICATED", "message": "A valid Cognito access token is required."},
+            detail={
+                "code": "UNAUTHENTICATED",
+                "message": "A valid Cognito access token is required.",
+            },
         )
     return user_id, email
 
@@ -93,11 +97,14 @@ def _verified_email_from_access_token(request: Request) -> str | None:
     except Exception as exc:  # noqa: BLE001
         # Never log the token or provider response; only the exception class.
         import logging
+
         logging.getLogger(__name__).warning(
             "Could not resolve subscription email through Cognito (%s)", type(exc).__name__
         )
         return None
-    attributes = {item.get("Name"): item.get("Value") for item in response.get("UserAttributes", [])}
+    attributes = {
+        item.get("Name"): item.get("Value") for item in response.get("UserAttributes", [])
+    }
     if str(attributes.get("email_verified", "")).lower() != "true":
         return None
     email = str(attributes.get("email") or "").strip()
@@ -113,7 +120,6 @@ def _public_subscription(item: dict[str, Any]) -> dict[str, Any]:
         "updated_at": item.get("updated_at"),
         "secret_configured": bool(item.get("secret_id")),
     }
-
 
 
 class UserStateRequest(BaseModel):
@@ -137,7 +143,9 @@ def health() -> dict[str, str]:
 @app.get("/api/v1/technologies")
 def technologies() -> dict[str, list[dict[str, str]]]:
     values = TECHNOLOGIES
-    return {"items": [{"id": key, "name": name, "category": category} for key, name, category in values]}
+    return {
+        "items": [{"id": key, "name": name, "category": category} for key, name, category in values]
+    }
 
 
 @app.get("/api/v1/updates")
@@ -176,9 +184,17 @@ def list_updates(
     items = [classify_update(dict(item)) for item in items]
     if department:
         if department not in DEPARTMENT_RULES:
-            raise HTTPException(status_code=422, detail={"message": "Unknown department workspace."})
+            raise HTTPException(
+                status_code=422, detail={"message": "Unknown department workspace."}
+            )
         items = [item for item in items if department in item["department_relevance"]]
-        items.sort(key=lambda item: (item["department_relevance_scores"].get(department, 0), item.get("published_at") or item.get("observed_at") or ""), reverse=True)
+        items.sort(
+            key=lambda item: (
+                item["department_relevance_scores"].get(department, 0),
+                item.get("published_at") or item.get("observed_at") or "",
+            ),
+            reverse=True,
+        )
     return {
         "items": items,
         "next_cursor": last_key,
@@ -192,7 +208,9 @@ def refresh_updates(request: Request) -> dict[str, Any]:
     _principal(request)
     queue_url = os.getenv("TECHPULSE_INGESTION_QUEUE_URL")
     if not queue_url:
-        raise HTTPException(status_code=503, detail={"message": "Ingestion queue is not configured."})
+        raise HTTPException(
+            status_code=503, detail={"message": "Ingestion queue is not configured."}
+        )
 
     # The checked-in registry controls enabled official sources. Persisted entries
     # may add custom sources, but stale table rows must not disable registry updates.
@@ -206,7 +224,9 @@ def refresh_updates(request: Request) -> dict[str, Any]:
             pass
     enabled = [source for source in sources_by_id.values() if source.get("enabled", True)]
     if not enabled:
-        raise HTTPException(status_code=503, detail={"message": "No enabled sources are configured."})
+        raise HTTPException(
+            status_code=503, detail={"message": "No enabled sources are configured."}
+        )
 
     queue = boto3.client("sqs", region_name=os.getenv("AWS_REGION", "ap-south-1"))
     for source in enabled:
@@ -214,40 +234,47 @@ def refresh_updates(request: Request) -> dict[str, Any]:
             QueueUrl=queue_url,
             MessageBody=json.dumps({"source_id": source["source_id"]}),
         )
-    return {"queued_sources": len(enabled), "source_ids": [source["source_id"] for source in enabled]}
+    return {
+        "queued_sources": len(enabled),
+        "source_ids": [source["source_id"] for source in enabled],
+    }
 
 
 @app.get("/api/v1/updates/{update_id}")
 def get_update(update_id: str) -> dict[str, Any]:
     item = UpdateStore().get(update_id)
     if not item:
-        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."})
+        raise HTTPException(
+            status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."}
+        )
     return item
-
-
 
 
 @app.get("/api/v1/user-state")
 def list_user_state(request: Request) -> dict[str, list[dict[str, Any]]]:
     user_id, _ = _principal(request)
     items = UserStateStore().list_for_user(user_id)
-    return {"items": [
-        {
-            "update_id": item["update_id"],
-            "saved": bool(item.get("saved", False)),
-            "read": bool(item.get("read", False)),
-            "created_at": item.get("created_at"),
-            "updated_at": item.get("updated_at"),
-        }
-        for item in items
-    ]}
+    return {
+        "items": [
+            {
+                "update_id": item["update_id"],
+                "saved": bool(item.get("saved", False)),
+                "read": bool(item.get("read", False)),
+                "created_at": item.get("created_at"),
+                "updated_at": item.get("updated_at"),
+            }
+            for item in items
+        ]
+    }
 
 
 @app.put("/api/v1/user-state/{update_id}")
 def put_user_state(update_id: str, body: UserStateRequest, request: Request) -> dict[str, Any]:
     user_id, _ = _principal(request)
     if not UpdateStore().get(update_id):
-        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."})
+        raise HTTPException(
+            status_code=404, detail={"code": "NOT_FOUND", "message": "Update not found."}
+        )
 
     store = UserStateStore()
     existing = store.get(user_id, update_id) or {}
@@ -261,13 +288,15 @@ def put_user_state(update_id: str, body: UserStateRequest, request: Request) -> 
         "updated_at": now,
     }
     store.put(item)
-    return {"item": {
-        "update_id": update_id,
-        "saved": item["saved"],
-        "read": item["read"],
-        "created_at": item["created_at"],
-        "updated_at": item["updated_at"],
-    }}
+    return {
+        "item": {
+            "update_id": update_id,
+            "saved": item["saved"],
+            "read": item["read"],
+            "created_at": item["created_at"],
+            "updated_at": item["updated_at"],
+        }
+    }
 
 
 @app.get("/api/v1/source-status")
@@ -307,7 +336,10 @@ def put_subscription(
     if technology_id not in SUPPORTED_TECHNOLOGY_IDS:
         raise HTTPException(
             status_code=404,
-            detail={"code": "UNKNOWN_TECHNOLOGY", "message": "Technology is not in the supported registry."},
+            detail={
+                "code": "UNKNOWN_TECHNOLOGY",
+                "message": "Technology is not in the supported registry.",
+            },
         )
 
     environment = os.getenv("TECHPULSE_ENVIRONMENT", "dev")
@@ -327,7 +359,10 @@ def put_subscription(
         if not email:
             raise HTTPException(
                 status_code=422,
-                detail={"code": "EMAIL_REQUIRED", "message": "The signed-in account has no verified email claim."},
+                detail={
+                    "code": "EMAIL_REQUIRED",
+                    "message": "The signed-in account has no verified email claim.",
+                },
             )
         item["email"] = email
     else:
@@ -353,7 +388,10 @@ def delete_subscription(technology_id: str, request: Request) -> dict[str, bool]
     if technology_id not in SUPPORTED_TECHNOLOGY_IDS:
         raise HTTPException(
             status_code=404,
-            detail={"code": "UNKNOWN_TECHNOLOGY", "message": "Technology is not in the supported registry."},
+            detail={
+                "code": "UNKNOWN_TECHNOLOGY",
+                "message": "Technology is not in the supported registry.",
+            },
         )
     SubscriptionStore().delete(user_id, technology_id)
     return {"deleted": True}

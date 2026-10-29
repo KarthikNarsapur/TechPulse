@@ -23,7 +23,7 @@ jobs:
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - run: ruff check app ../tests ../scripts
-      - run: ruff format app ../tests ../scripts
+      - run: ruff format --check app ../tests ../scripts
       - run: PYTHONPATH=. pytest ../tests --cov=app --cov-report=term-missing
 
   frontend:
@@ -49,6 +49,6 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.8"
-      - run: terraform fmt -recursive infrastructure/terraform -diff
+      - run: terraform fmt -check -recursive -diff infrastructure/terraform
       - run: terraform -chdir=infrastructure/terraform init -backend=false
       - run: terraform -chdir=infrastructure/terraform validate

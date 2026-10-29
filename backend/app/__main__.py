@@ -1,4 +1,5 @@
 """Local development server: python -m app."""
+
 import uvicorn
 
 if __name__ == "__main__":

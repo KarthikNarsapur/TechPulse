@@ -151,7 +151,7 @@ jobs:
       - name: Validate Terraform
         working-directory: infrastructure/terraform
         run: |
-          terraform fmt -recursive
+          terraform fmt -check -recursive
           terraform validate
 
       - name: Validate destroy confirmation

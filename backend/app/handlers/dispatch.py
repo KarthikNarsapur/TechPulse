@@ -1,4 +1,5 @@
 """EventBridge dispatcher: enqueue one SQS job per enabled source."""
+
 import json
 import logging
 import os

@@ -1,4 +1,5 @@
 """Dispatch configured sources to their adapter implementation."""
+
 from app.adapters.feeds import fetch_feed
 from app.adapters.github_releases import fetch_github_releases
 from app.models import NormalizedUpdate, SourceConfig, SourceType

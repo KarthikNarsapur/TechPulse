@@ -15,25 +15,35 @@ def test_same_url_has_same_update_id() -> None:
 
 
 def test_fingerprint_is_stable_for_whitespace_variations() -> None:
-    a = NormalizedUpdate.fingerprint("x", "123", "https://example.com", " New   Feature ", "line one\n line two")
-    b = NormalizedUpdate.fingerprint("x", "123", "https://example.com", "new feature", "line one line two")
+    a = NormalizedUpdate.fingerprint(
+        "x", "123", "https://example.com", " New   Feature ", "line one\n line two"
+    )
+    b = NormalizedUpdate.fingerprint(
+        "x", "123", "https://example.com", "new feature", "line one line two"
+    )
     assert a == b
 
 
 def test_deterministic_priority_for_confirmed_security_exposure() -> None:
-    assert deterministic_priority(
-        category=UpdateCategory.SECURITY_ADVISORY,
-        evidence_confidence=0.95,
-        confirmed_exposure=True,
-    ) == Priority.CRITICAL
+    assert (
+        deterministic_priority(
+            category=UpdateCategory.SECURITY_ADVISORY,
+            evidence_confidence=0.95,
+            confirmed_exposure=True,
+        )
+        == Priority.CRITICAL
+    )
 
 
 def test_unknown_security_exposure_does_not_become_critical() -> None:
-    assert deterministic_priority(
-        category=UpdateCategory.SECURITY_ADVISORY,
-        evidence_confidence=0.95,
-        confirmed_exposure=False,
-    ) == Priority.MEDIUM
+    assert (
+        deterministic_priority(
+            category=UpdateCategory.SECURITY_ADVISORY,
+            evidence_confidence=0.95,
+            confirmed_exposure=False,
+        )
+        == Priority.MEDIUM
+    )
 
 
 def test_normalized_update_model() -> None:

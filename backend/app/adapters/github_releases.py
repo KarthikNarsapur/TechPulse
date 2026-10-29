@@ -1,4 +1,5 @@
 """Generic GitHub Releases API adapter."""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -16,7 +17,9 @@ def _parse_datetime(raw: str | None) -> datetime | None:
         return None
 
 
-def fetch_github_releases(source: SourceConfig, *, timeout_seconds: float = 15.0) -> list[NormalizedUpdate]:
+def fetch_github_releases(
+    source: SourceConfig, *, timeout_seconds: float = 15.0
+) -> list[NormalizedUpdate]:
     """Fetch recent GitHub releases for configured owner/repo.
 
     For production, add persisted pagination/checkpoints and conditional requests.
@@ -52,9 +55,7 @@ def fetch_github_releases(source: SourceConfig, *, timeout_seconds: float = 15.0
             continue
         body = " ".join(str(release.get("body") or "").split())[:20000]
         external_id = str(release.get("id") or release.get("tag_name") or url)
-        content_hash = NormalizedUpdate.fingerprint(
-            source.source_id, external_id, url, title, body
-        )
+        content_hash = NormalizedUpdate.fingerprint(source.source_id, external_id, url, title, body)
         updates.append(
             NormalizedUpdate(
                 update_id=NormalizedUpdate.make_id(url),

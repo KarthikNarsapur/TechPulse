@@ -1,4 +1,5 @@
 """Source adapter contracts."""
+
 from typing import Protocol
 
 from app.models import NormalizedUpdate, SourceConfig

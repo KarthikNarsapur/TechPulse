@@ -1,4 +1,5 @@
 """Canonical data contracts shared by API and worker code."""
+
 from datetime import datetime, timezone
 from enum import StrEnum
 from hashlib import sha256
@@ -82,12 +83,18 @@ class NormalizedUpdate(BaseModel):
             key = pair.split("=", 1)[0].lower()
             if key and not (key.startswith("utm_") or key in {"source", "ref", "fbclid"}):
                 kept.append(pair)
-        return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/"), "&".join(kept), ""))
+        return urlunsplit(
+            (parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/"), "&".join(kept), "")
+        )
 
     @classmethod
-    def fingerprint(cls, source_id: str, external_id: str | None, url: str, title: str, text: str) -> str:
+    def fingerprint(
+        cls, source_id: str, external_id: str | None, url: str, title: str, text: str
+    ) -> str:
         identity = external_id or cls.normalize_url(url)
-        canonical = "\n".join([source_id, identity, " ".join(title.split()).casefold(), " ".join(text.split())])
+        canonical = "\n".join(
+            [source_id, identity, " ".join(title.split()).casefold(), " ".join(text.split())]
+        )
         return sha256(canonical.encode("utf-8")).hexdigest()
 
     @classmethod
@@ -124,11 +131,19 @@ def deterministic_priority(
     urgent_deadline: bool = False,
 ) -> Priority:
     """Simple, auditable baseline; never lets an LLM directly set final priority."""
-    if category == UpdateCategory.SECURITY_ADVISORY and confirmed_exposure and evidence_confidence >= 0.8:
+    if (
+        category == UpdateCategory.SECURITY_ADVISORY
+        and confirmed_exposure
+        and evidence_confidence >= 0.8
+    ):
         return Priority.CRITICAL
     if urgent_deadline or category in {UpdateCategory.BREAKING_CHANGE, UpdateCategory.DEPRECATION}:
         return Priority.HIGH
-    if category in {UpdateCategory.SECURITY_ADVISORY, UpdateCategory.NEW_FEATURE, UpdateCategory.RELEASE}:
+    if category in {
+        UpdateCategory.SECURITY_ADVISORY,
+        UpdateCategory.NEW_FEATURE,
+        UpdateCategory.RELEASE,
+    }:
         return Priority.MEDIUM
     if category in {UpdateCategory.BUG_FIX, UpdateCategory.PRICING_CHANGE}:
         return Priority.LOW

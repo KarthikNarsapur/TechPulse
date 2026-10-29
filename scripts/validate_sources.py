@@ -9,6 +9,7 @@ Examples:
 Network validation is intentionally opt-in in CI because vendor feeds can
 rate-limit or have temporary outages.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,7 +73,9 @@ def validate(source: SourceConfig) -> ValidationResult:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--all", action="store_true", help="Validate disabled sources too.")
-    parser.add_argument("--strict", action="store_true", help="Exit non-zero unless every selected source passes.")
+    parser.add_argument(
+        "--strict", action="store_true", help="Exit non-zero unless every selected source passes."
+    )
     parser.add_argument("--json", action="store_true", help="Print a JSON report.")
     args = parser.parse_args()
 
@@ -85,7 +88,9 @@ def main() -> int:
     else:
         for result in results:
             marker = "PASS" if result.status == "passed" else "FAIL"
-            print(f"[{marker}] {result.source_id}: {result.status}; entries={result.entries}; url={result.url}")
+            print(
+                f"[{marker}] {result.source_id}: {result.status}; entries={result.entries}; url={result.url}"
+            )
             if result.sample_title:
                 print(f"       sample: {result.sample_title}")
             if result.error:

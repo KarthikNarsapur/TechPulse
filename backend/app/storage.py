@@ -1,4 +1,5 @@
 """DynamoDB persistence helpers with explicit conditional-write semantics."""
+
 from __future__ import annotations
 
 import os
@@ -14,14 +15,18 @@ from app.models import NormalizedUpdate
 
 class UpdateStore:
     def __init__(self, table_name: str | None = None, *, region_name: str | None = None) -> None:
-        self.table_name = table_name or os.getenv("TECHPULSE_UPDATES_TABLE", "techpulse-dev-updates")
+        self.table_name = table_name or os.getenv(
+            "TECHPULSE_UPDATES_TABLE", "techpulse-dev-updates"
+        )
         self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
         self._table: Any | None = None
 
     @property
     def table(self) -> Any:
         if self._table is None:
-            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(
+                self.table_name
+            )
         return self._table
 
     def get(self, update_id: str) -> dict[str, Any] | None:
@@ -42,10 +47,14 @@ class UpdateStore:
         """Persist a new update; an existing URL is not overwritten."""
         item = update.model_dump(mode="json")
         item["published_key"] = (
-            update.published_at.astimezone(timezone.utc).isoformat()
-            if update.published_at
-            else update.observed_at.astimezone(timezone.utc).isoformat()
-        ) + "#" + update.update_id
+            (
+                update.published_at.astimezone(timezone.utc).isoformat()
+                if update.published_at
+                else update.observed_at.astimezone(timezone.utc).isoformat()
+            )
+            + "#"
+            + update.update_id
+        )
         item["first_seen_at"] = datetime.now(timezone.utc).isoformat()
         item["analysis_status"] = "pending"
         item["feed_scope"] = "all"
@@ -61,10 +70,14 @@ class UpdateStore:
         now = datetime.now(timezone.utc).isoformat()
         item = update.model_dump(mode="json")
         item["published_key"] = (
-            update.published_at.astimezone(timezone.utc).isoformat()
-            if update.published_at
-            else update.observed_at.astimezone(timezone.utc).isoformat()
-        ) + "#" + update.update_id
+            (
+                update.published_at.astimezone(timezone.utc).isoformat()
+                if update.published_at
+                else update.observed_at.astimezone(timezone.utc).isoformat()
+            )
+            + "#"
+            + update.update_id
+        )
         item["feed_scope"] = "all"
 
         try:
@@ -87,7 +100,9 @@ class UpdateStore:
             item["revision"] = 1
             item["analysis_status"] = "pending"
             try:
-                self.table.put_item(Item=item, ConditionExpression="attribute_not_exists(update_id)")
+                self.table.put_item(
+                    Item=item, ConditionExpression="attribute_not_exists(update_id)"
+                )
                 return "new"
             except ClientError as exc:
                 if exc.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
@@ -169,7 +184,10 @@ class UpdateStore:
         if exclusive_start_key:
             kwargs["ExclusiveStartKey"] = exclusive_start_key
         result = self.table.query(**kwargs)
-        return {"items": result.get("Items", []), "last_evaluated_key": result.get("LastEvaluatedKey")}
+        return {
+            "items": result.get("Items", []),
+            "last_evaluated_key": result.get("LastEvaluatedKey"),
+        }
 
     def query_by_technology(
         self,
@@ -187,19 +205,26 @@ class UpdateStore:
         if exclusive_start_key:
             kwargs["ExclusiveStartKey"] = exclusive_start_key
         result = self.table.query(**kwargs)
-        return {"items": result.get("Items", []), "last_evaluated_key": result.get("LastEvaluatedKey")}
+        return {
+            "items": result.get("Items", []),
+            "last_evaluated_key": result.get("LastEvaluatedKey"),
+        }
 
 
 class SourceStore:
     def __init__(self, table_name: str | None = None, *, region_name: str | None = None) -> None:
-        self.table_name = table_name or os.getenv("TECHPULSE_SOURCES_TABLE", "techpulse-dev-sources")
+        self.table_name = table_name or os.getenv(
+            "TECHPULSE_SOURCES_TABLE", "techpulse-dev-sources"
+        )
         self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
         self._table: Any | None = None
 
     @property
     def table(self) -> Any:
         if self._table is None:
-            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(
+                self.table_name
+            )
         return self._table
 
     def all_enabled(self) -> list[dict[str, Any]]:
@@ -218,19 +243,22 @@ class SourceStore:
         self.table.put_item(Item=item)
 
 
-
 class SubscriptionStore:
     """Per-user technology subscriptions with indexed notification fan-out."""
 
     def __init__(self, table_name: str | None = None, *, region_name: str | None = None) -> None:
-        self.table_name = table_name or os.getenv("TECHPULSE_SUBSCRIPTIONS_TABLE", "techpulse-dev-subscriptions")
+        self.table_name = table_name or os.getenv(
+            "TECHPULSE_SUBSCRIPTIONS_TABLE", "techpulse-dev-subscriptions"
+        )
         self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
         self._table: Any | None = None
 
     @property
     def table(self) -> Any:
         if self._table is None:
-            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(
+                self.table_name
+            )
         return self._table
 
     def list_for_user(self, user_id: str) -> list[dict[str, Any]]:
@@ -257,6 +285,7 @@ class SubscriptionStore:
     def delete(self, user_id: str, technology_id: str) -> None:
         self.table.delete_item(Key={"user_id": user_id, "technology_id": technology_id})
 
+
 class PollStatusStore:
     """Durable per-source polling checkpoints, isolated from source configuration."""
 
@@ -270,7 +299,9 @@ class PollStatusStore:
     @property
     def table(self) -> Any:
         if self._table is None:
-            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(
+                self.table_name
+            )
         return self._table
 
     def started(self, source_id: str, *, started_at: str) -> None:
@@ -338,18 +369,23 @@ class PollStatusStore:
             items.extend(response.get("Items", []))
         return sorted(items, key=lambda item: str(item.get("source_id", "")))
 
+
 class UserStateStore:
     """User-owned saved/read state for canonical updates."""
 
     def __init__(self, table_name: str | None = None, *, region_name: str | None = None) -> None:
-        self.table_name = table_name or os.getenv("TECHPULSE_USER_STATE_TABLE", "techpulse-dev-user-state")
+        self.table_name = table_name or os.getenv(
+            "TECHPULSE_USER_STATE_TABLE", "techpulse-dev-user-state"
+        )
         self.region_name = region_name or os.getenv("AWS_REGION", "ap-south-1")
         self._table: Any | None = None
 
     @property
     def table(self) -> Any:
         if self._table is None:
-            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(self.table_name)
+            self._table = boto3.resource("dynamodb", region_name=self.region_name).Table(
+                self.table_name
+            )
         return self._table
 
     def list_for_user(self, user_id: str) -> list[dict[str, Any]]:
@@ -372,4 +408,3 @@ class UserStateStore:
 
     def put(self, item: dict[str, Any]) -> None:
         self.table.put_item(Item=item)
-

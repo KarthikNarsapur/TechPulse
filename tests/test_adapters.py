@@ -62,22 +62,39 @@ def test_rss_adapter_normalizes_entry_and_drops_tracking(monkeypatch) -> None:
 
 
 def test_github_releases_adapter_skips_drafts_and_prereleases(monkeypatch) -> None:
-    FakeClient.response = FakeResponse(payload=[
-        {
-            "id": 1, "html_url": "https://github.com/example/tool/releases/tag/v1.0.0",
-            "name": "v1.0.0", "tag_name": "v1.0.0", "body": "Stable",
-            "published_at": "2026-10-17T10:00:00Z", "draft": False, "prerelease": False,
-        },
-        {
-            "id": 2, "html_url": "https://github.com/example/tool/releases/tag/v2.0.0-rc.1",
-            "name": "RC", "tag_name": "v2.0.0-rc.1", "body": "Release candidate",
-            "published_at": "2026-10-17T10:00:00Z", "draft": False, "prerelease": True,
-        },
-        {
-            "id": 3, "html_url": "https://github.com/example/tool/releases/tag/draft",
-            "name": "Draft", "tag_name": "draft", "body": "", "draft": True, "prerelease": False,
-        },
-    ])
+    FakeClient.response = FakeResponse(
+        payload=[
+            {
+                "id": 1,
+                "html_url": "https://github.com/example/tool/releases/tag/v1.0.0",
+                "name": "v1.0.0",
+                "tag_name": "v1.0.0",
+                "body": "Stable",
+                "published_at": "2026-10-17T10:00:00Z",
+                "draft": False,
+                "prerelease": False,
+            },
+            {
+                "id": 2,
+                "html_url": "https://github.com/example/tool/releases/tag/v2.0.0-rc.1",
+                "name": "RC",
+                "tag_name": "v2.0.0-rc.1",
+                "body": "Release candidate",
+                "published_at": "2026-10-17T10:00:00Z",
+                "draft": False,
+                "prerelease": True,
+            },
+            {
+                "id": 3,
+                "html_url": "https://github.com/example/tool/releases/tag/draft",
+                "name": "Draft",
+                "tag_name": "draft",
+                "body": "",
+                "draft": True,
+                "prerelease": False,
+            },
+        ]
+    )
     monkeypatch.setattr("app.adapters.github_releases.httpx.Client", FakeClient)
     source = SourceConfig(
         source_id="example.github",

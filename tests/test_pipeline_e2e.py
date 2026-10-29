@@ -51,19 +51,33 @@ class MemoryTable:
         self.writes.append(Item)
         self.items[(Item["update_id"], Item["analysis_version"])] = Item
 
-    def update_item(self, *, Key, UpdateExpression, ExpressionAttributeNames, ExpressionAttributeValues, **kwargs):
+    def update_item(
+        self,
+        *,
+        Key,
+        UpdateExpression,
+        ExpressionAttributeNames,
+        ExpressionAttributeValues,
+        **kwargs,
+    ):
         item = self.items[tuple(Key.values())]
         for placeholder, value in ExpressionAttributeValues.items():
-            field = ExpressionAttributeNames.get(placeholder.replace("#", "")) if placeholder.startswith("#") else None
+            field = (
+                ExpressionAttributeNames.get(placeholder.replace("#", ""))
+                if placeholder.startswith("#")
+                else None
+            )
             if field:
                 item[field] = value
-        item.update({
-            "summary": ExpressionAttributeValues[":summary"],
-            "category": ExpressionAttributeValues[":category"],
-            "priority": ExpressionAttributeValues[":priority"],
-            "analysis_status": ExpressionAttributeValues[":status"],
-            "analysis_confidence": ExpressionAttributeValues[":confidence"],
-        })
+        item.update(
+            {
+                "summary": ExpressionAttributeValues[":summary"],
+                "category": ExpressionAttributeValues[":category"],
+                "priority": ExpressionAttributeValues[":priority"],
+                "analysis_status": ExpressionAttributeValues[":status"],
+                "analysis_confidence": ExpressionAttributeValues[":confidence"],
+            }
+        )
         self.writes.append(item)
 
 
@@ -90,7 +104,9 @@ def test_fixture_rss_to_persisted_analysis_with_fake_provider(monkeypatch) -> No
     poll_status = MagicMock()
     queue = MagicMock()
     queue_messages = []
-    queue.send_message.side_effect = lambda **kwargs: queue_messages.append(kwargs) or {"MessageId": "fixture-message"}
+    queue.send_message.side_effect = lambda **kwargs: (
+        queue_messages.append(kwargs) or {"MessageId": "fixture-message"}
+    )
 
     monkeypatch.setattr(ingest_handler, "_load_registry", lambda: [source])
     monkeypatch.setattr(ingest_handler, "UpdateStore", lambda: updates_store)
@@ -107,10 +123,12 @@ def test_fixture_rss_to_persisted_analysis_with_fake_provider(monkeypatch) -> No
     assert poll_status.succeeded.call_count == 1
     assert len(queue_messages) == 1
     analysis_event = {
-        "Records": [{
-            "messageId": "fixture-message",
-            "body": queue_messages[0]["MessageBody"],
-        }]
+        "Records": [
+            {
+                "messageId": "fixture-message",
+                "body": queue_messages[0]["MessageBody"],
+            }
+        ]
     }
 
     update_table = MemoryTable({(key,): value for key, value in updates_store.items.items()})
@@ -128,7 +146,12 @@ def test_fixture_rss_to_persisted_analysis_with_fake_provider(monkeypatch) -> No
         category=UpdateCategory.RELEASE,
         affected_technologies=["terraform"],
         affected_versions=["2.0"],
-        evidence=[{"quote": "Improves plan output", "source_url": "https://example.com/releases/terraform-2"}],
+        evidence=[
+            {
+                "quote": "Improves plan output",
+                "source_url": "https://example.com/releases/terraform-2",
+            }
+        ],
         confidence=0.95,
         requires_human_review=False,
     )
@@ -136,7 +159,9 @@ def test_fixture_rss_to_persisted_analysis_with_fake_provider(monkeypatch) -> No
     monkeypatch.setattr(
         analyze_handler,
         "_invoke_model",
-        lambda update, *, model_id, prompt_version: provider_calls.append((update, model_id, prompt_version)) or fake_result,
+        lambda update, *, model_id, prompt_version: (
+            provider_calls.append((update, model_id, prompt_version)) or fake_result
+        ),
     )
     analysis = analyze_handler.handler(analysis_event, None)
 

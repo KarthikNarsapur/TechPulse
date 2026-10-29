@@ -3,6 +3,7 @@
 SQS is at-least-once. A conditional DynamoDB claim suppresses duplicate sends when
 the same delivery message is retried after a successful provider response.
 """
+
 from __future__ import annotations
 
 import json
@@ -83,9 +84,9 @@ def _deliveries_table() -> Any:
     table_name = os.getenv("TECHPULSE_DELIVERIES_TABLE")
     if not table_name:
         raise RuntimeError("TECHPULSE_DELIVERIES_TABLE must be configured")
-    return boto3.resource(
-        "dynamodb", region_name=os.getenv("AWS_REGION", "ap-south-1")
-    ).Table(table_name)
+    return boto3.resource("dynamodb", region_name=os.getenv("AWS_REGION", "ap-south-1")).Table(
+        table_name
+    )
 
 
 def _claim_delivery(table: Any, delivery_id: str, claim_token: str, now: int) -> str:
@@ -145,7 +146,16 @@ def _claim_delivery(table: Any, delivery_id: str, claim_token: str, now: int) ->
         raise
 
 
-def _mark_delivery(table: Any, delivery_id: str, claim_token: str, *, status: str, now: int, provider_id: str = "", error: str = "") -> None:
+def _mark_delivery(
+    table: Any,
+    delivery_id: str,
+    claim_token: str,
+    *,
+    status: str,
+    now: int,
+    provider_id: str = "",
+    error: str = "",
+) -> None:
     values: dict[str, Any] = {
         ":status": status,
         ":now": now,
@@ -189,7 +199,11 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             now = int(time.time())
             claim = _claim_delivery(table, delivery_id, claim_token, now)
             if claim == "sent":
-                logger.info(json.dumps({"event": "notification_duplicate_suppressed", "delivery_id": delivery_id}))
+                logger.info(
+                    json.dumps(
+                        {"event": "notification_duplicate_suppressed", "delivery_id": delivery_id}
+                    )
+                )
                 continue
             if claim != "claimed":
                 # Retry after the current worker's lease expires; don't drop the job.
@@ -206,19 +220,35 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 raise ValueError(f"unsupported channel: {channel}")
 
             _mark_delivery(
-                table, delivery_id, claim_token, status="sent", now=int(time.time()), provider_id=provider_id
+                table,
+                delivery_id,
+                claim_token,
+                status="sent",
+                now=int(time.time()),
+                provider_id=provider_id,
             )
-            logger.info(json.dumps({
-                "event": "notification_accepted",
-                "delivery_id": delivery_id,
-                "channel": channel,
-                "provider_id": provider_id,
-            }))
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "notification_accepted",
+                        "delivery_id": delivery_id,
+                        "channel": channel,
+                        "provider_id": provider_id,
+                    }
+                )
+            )
         except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
             logger.warning("Invalid notification record %s: %s", message_id, type(exc).__name__)
             if claimed and delivery_id:
                 try:
-                    _mark_delivery(table, delivery_id, claim_token, status="failed", now=int(time.time()), error=type(exc).__name__)
+                    _mark_delivery(
+                        table,
+                        delivery_id,
+                        claim_token,
+                        status="failed",
+                        now=int(time.time()),
+                        error=type(exc).__name__,
+                    )
                 except Exception:  # noqa: BLE001
                     logger.exception("Unable to persist failed delivery state")
             failures.append({"itemIdentifier": message_id})
@@ -226,7 +256,14 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             logger.exception("Notification delivery failed for message %s", message_id)
             if claimed and delivery_id:
                 try:
-                    _mark_delivery(table, delivery_id, claim_token, status="failed", now=int(time.time()), error=type(exc).__name__)
+                    _mark_delivery(
+                        table,
+                        delivery_id,
+                        claim_token,
+                        status="failed",
+                        now=int(time.time()),
+                        error=type(exc).__name__,
+                    )
                 except Exception:  # noqa: BLE001
                     logger.exception("Unable to persist failed delivery state")
             failures.append({"itemIdentifier": message_id})

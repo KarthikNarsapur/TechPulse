@@ -1,4 +1,5 @@
 """Deterministic, explainable department relevance for TechPulse updates."""
+
 from __future__ import annotations
 
 import re
@@ -8,30 +9,267 @@ from typing import Any
 # are not authorization boundaries and should not be treated as an HR directory.
 DEPARTMENT_RULES: dict[str, tuple[tuple[str, ...], ...]] = {
     "tc-migration-finops": (
-        ("migration", "migrate", "migrating", "transform", "modernization", "modernisation", "cloud adoption", "disaster recovery", "replication", "data transfer", "dms", "database migration", "vmware", "azure to aws", "aws to azure", "cross-region", "cross account"),
-        ("finops", "cost optimization", "cost optimisation", "cost management", "pricing", "price reduction", "savings plan", "reserved instance", "compute optimizer", "billing", "budgets", "cost explorer", "rightsizing", "right-sizing", "spend", "unit economics"),
-        ("terraform", "infrastructure as code", "iac", "kubernetes", "eks", "aks", "gke", "container", "networking", "vpc", "vnet", "vpn", "load balancer", "cloudformation", "bicep", "landing zone"),
+        (
+            "migration",
+            "migrate",
+            "migrating",
+            "transform",
+            "modernization",
+            "modernisation",
+            "cloud adoption",
+            "disaster recovery",
+            "replication",
+            "data transfer",
+            "dms",
+            "database migration",
+            "vmware",
+            "azure to aws",
+            "aws to azure",
+            "cross-region",
+            "cross account",
+        ),
+        (
+            "finops",
+            "cost optimization",
+            "cost optimisation",
+            "cost management",
+            "pricing",
+            "price reduction",
+            "savings plan",
+            "reserved instance",
+            "compute optimizer",
+            "billing",
+            "budgets",
+            "cost explorer",
+            "rightsizing",
+            "right-sizing",
+            "spend",
+            "unit economics",
+        ),
+        (
+            "terraform",
+            "infrastructure as code",
+            "iac",
+            "kubernetes",
+            "eks",
+            "aks",
+            "gke",
+            "container",
+            "networking",
+            "vpc",
+            "vnet",
+            "vpn",
+            "load balancer",
+            "cloudformation",
+            "bicep",
+            "landing zone",
+        ),
     ),
-    "tc-data-aiot": (("data warehouse", "data lake", "analytics", "machine learning", "generative ai", "bedrock", "sagemaker", "vertex ai", "azure ai", "iot", "database", "postgres", "mysql", "dynamodb", "redshift", "bigquery", "synapse", "fabric"),),
-    "tc-development": (("sdk", "api", "developer", "runtime", "programming language", "java", "python", "node.js", "dotnet", ".net", "code conversion", "ide", "gitlab", "ci/cd", "pipeline", "build"),),
-    "tc-devops-kubernetes": (("kubernetes", "kubectl", "helm", "container", "eks", "aks", "gke", "terraform", "ci/cd", "pipeline", "gitlab", "github actions", "deployment", "observability", "prometheus", "grafana", "service mesh"),),
-    "tc-general": (("infrastructure", "architecture", "resilience", "reliability", "well-architected", "cloud foundation", "landing zone"),),
-    "tc-infra-security": (("security", "vulnerability", "cve-", "iam", "identity", "encryption", "kms", "firewall", "compliance", "audit", "zero trust", "threat", "guardduty", "defender", "policy", "network security"),),
-    "tc-it-support": (("support", "service health", "incident", "troubleshoot", "maintenance", "end of support", "end-of-life", "eol", "status dashboard"),),
-    "tc-ld-content": (("certification", "training", "learning path", "course", "exam", "documentation", "tutorial", "workshop", "skill builder"),),
-    "tc-managed-services": (("managed service", "operations", "monitoring", "backup", "patch", "maintenance window", "service level", "sla", "incident management", "observability"),),
-    "tc-presales": (("solution architecture", "reference architecture", "partner solution", "partner program", "marketplace listing", "proof of concept", "customer solution", "sales engineering"),),
-    "ts-ms-programs": (("microsoft", "azure", "m365", "microsoft 365", "copilot", "windows server", "entra", "power platform"),),
-    "ts-corporate-accounts": (("corporate account", "enterprise agreement", "enterprise customer", "organization-wide", "organisation-wide", "commercial account", "account team", "license management"),),
-    "ts-inside-sales": (("inside sales", "sales enablement", "sales playbook", "lead qualification", "sales pipeline", "commercial pricing", "license sales", "sales training"),),
-    "ts-demand-generation": (("demand generation", "marketing campaign", "lead generation", "campaign asset", "marketing qualified lead", "customer webinar", "event registration", "product marketing"),),
-    "general": (("release", "security", "availability", "breaking change", "deprecation", "new feature"),),
+    "tc-data-aiot": (
+        (
+            "data warehouse",
+            "data lake",
+            "analytics",
+            "machine learning",
+            "generative ai",
+            "bedrock",
+            "sagemaker",
+            "vertex ai",
+            "azure ai",
+            "iot",
+            "database",
+            "postgres",
+            "mysql",
+            "dynamodb",
+            "redshift",
+            "bigquery",
+            "synapse",
+            "fabric",
+        ),
+    ),
+    "tc-development": (
+        (
+            "sdk",
+            "api",
+            "developer",
+            "runtime",
+            "programming language",
+            "java",
+            "python",
+            "node.js",
+            "dotnet",
+            ".net",
+            "code conversion",
+            "ide",
+            "gitlab",
+            "ci/cd",
+            "pipeline",
+            "build",
+        ),
+    ),
+    "tc-devops-kubernetes": (
+        (
+            "kubernetes",
+            "kubectl",
+            "helm",
+            "container",
+            "eks",
+            "aks",
+            "gke",
+            "terraform",
+            "ci/cd",
+            "pipeline",
+            "gitlab",
+            "github actions",
+            "deployment",
+            "observability",
+            "prometheus",
+            "grafana",
+            "service mesh",
+        ),
+    ),
+    "tc-general": (
+        (
+            "infrastructure",
+            "architecture",
+            "resilience",
+            "reliability",
+            "well-architected",
+            "cloud foundation",
+            "landing zone",
+        ),
+    ),
+    "tc-infra-security": (
+        (
+            "security",
+            "vulnerability",
+            "cve-",
+            "iam",
+            "identity",
+            "encryption",
+            "kms",
+            "firewall",
+            "compliance",
+            "audit",
+            "zero trust",
+            "threat",
+            "guardduty",
+            "defender",
+            "policy",
+            "network security",
+        ),
+    ),
+    "tc-it-support": (
+        (
+            "support",
+            "service health",
+            "incident",
+            "troubleshoot",
+            "maintenance",
+            "end of support",
+            "end-of-life",
+            "eol",
+            "status dashboard",
+        ),
+    ),
+    "tc-ld-content": (
+        (
+            "certification",
+            "training",
+            "learning path",
+            "course",
+            "exam",
+            "documentation",
+            "tutorial",
+            "workshop",
+            "skill builder",
+        ),
+    ),
+    "tc-managed-services": (
+        (
+            "managed service",
+            "operations",
+            "monitoring",
+            "backup",
+            "patch",
+            "maintenance window",
+            "service level",
+            "sla",
+            "incident management",
+            "observability",
+        ),
+    ),
+    "tc-presales": (
+        (
+            "solution architecture",
+            "reference architecture",
+            "partner solution",
+            "partner program",
+            "marketplace listing",
+            "proof of concept",
+            "customer solution",
+            "sales engineering",
+        ),
+    ),
+    "ts-ms-programs": (
+        (
+            "microsoft",
+            "azure",
+            "m365",
+            "microsoft 365",
+            "copilot",
+            "windows server",
+            "entra",
+            "power platform",
+        ),
+    ),
+    "ts-corporate-accounts": (
+        (
+            "corporate account",
+            "enterprise agreement",
+            "enterprise customer",
+            "organization-wide",
+            "organisation-wide",
+            "commercial account",
+            "account team",
+            "license management",
+        ),
+    ),
+    "ts-inside-sales": (
+        (
+            "inside sales",
+            "sales enablement",
+            "sales playbook",
+            "lead qualification",
+            "sales pipeline",
+            "commercial pricing",
+            "license sales",
+            "sales training",
+        ),
+    ),
+    "ts-demand-generation": (
+        (
+            "demand generation",
+            "marketing campaign",
+            "lead generation",
+            "campaign asset",
+            "marketing qualified lead",
+            "customer webinar",
+            "event registration",
+            "product marketing",
+        ),
+    ),
+    "general": (
+        ("release", "security", "availability", "breaking change", "deprecation", "new feature"),
+    ),
 }
 
 
 def classify_update(item: dict[str, Any]) -> dict[str, Any]:
     """Attach department relevance, preserving successful model classifications."""
-    if item.get("relevance_provider") == "anthropic" and isinstance(item.get("department_relevance"), list):
+    if item.get("relevance_provider") == "anthropic" and isinstance(
+        item.get("department_relevance"), list
+    ):
         return item
     title = str(item.get("title") or "")
     body = str(item.get("content_text") or item.get("summary") or "")
@@ -48,12 +286,18 @@ def classify_update(item: dict[str, Any]) -> dict[str, Any]:
         for group_index, keywords in enumerate(rule_groups):
             hits = [keyword for keyword in keywords if keyword in text]
             if hits:
-                score += (5 if group_index == 0 else 4 if group_index == 1 else 2) + min(len(hits) - 1, 2)
+                score += (5 if group_index == 0 else 4 if group_index == 1 else 2) + min(
+                    len(hits) - 1, 2
+                )
                 topics.extend(hits[:3])
         if department_id == "tc-migration-finops" and technology in {"terraform", "kubernetes"}:
             score += 2
             topics.append(technology)
-        if score >= (2 if department_id == "tc-migration-finops" and technology in {"terraform", "kubernetes"} else 4):
+        if score >= (
+            2
+            if department_id == "tc-migration-finops" and technology in {"terraform", "kubernetes"}
+            else 4
+        ):
             matched[department_id] = list(dict.fromkeys(topics))[:6]
             scores[department_id] = score
 

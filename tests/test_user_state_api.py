@@ -8,21 +8,19 @@ from app.api import UserStateRequest, list_user_state, put_user_state
 
 
 def _request(user_id: str = "user-123") -> Request:
-    return Request({
-        "type": "http",
-        "method": "GET",
-        "path": "/api/v1/user-state",
-        "headers": [],
-        "query_string": b"",
-        "server": ("test", 80),
-        "client": ("test", 1),
-        "scheme": "https",
-        "aws.event": {
-            "requestContext": {
-                "authorizer": {"jwt": {"claims": {"sub": user_id}}}
-            }
-        },
-    })
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/v1/user-state",
+            "headers": [],
+            "query_string": b"",
+            "server": ("test", 80),
+            "client": ("test", 1),
+            "scheme": "https",
+            "aws.event": {"requestContext": {"authorizer": {"jwt": {"claims": {"sub": user_id}}}}},
+        }
+    )
 
 
 def test_user_state_list_is_scoped_to_verified_principal(monkeypatch) -> None:
@@ -35,8 +33,15 @@ def test_user_state_list_is_scoped_to_verified_principal(monkeypatch) -> None:
     result = list_user_state(_request())
 
     store.list_for_user.assert_called_once_with("user-123")
-    assert result["items"] == [{"update_id": "update-1", "saved": True, "read": False,
-                                "created_at": None, "updated_at": None}]
+    assert result["items"] == [
+        {
+            "update_id": "update-1",
+            "saved": True,
+            "read": False,
+            "created_at": None,
+            "updated_at": None,
+        }
+    ]
 
 
 def test_user_state_update_preserves_unspecified_flag(monkeypatch) -> None:
@@ -49,7 +54,9 @@ def test_user_state_update_preserves_unspecified_flag(monkeypatch) -> None:
         "created_at": "2026-01-01T00:00:00+00:00",
     }
     monkeypatch.setattr("app.api.UserStateStore", lambda: store)
-    monkeypatch.setattr("app.api.UpdateStore", lambda: MagicMock(get=lambda _update_id: {"update_id": "update-1"}))
+    monkeypatch.setattr(
+        "app.api.UpdateStore", lambda: MagicMock(get=lambda _update_id: {"update_id": "update-1"})
+    )
 
     result = put_user_state("update-1", UserStateRequest(read=True), _request())
 

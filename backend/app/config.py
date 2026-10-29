@@ -3,6 +3,7 @@
 No credentials are shipped in source control. In AWS, prefer Lambda execution
 roles and Secrets Manager for external integration secrets.
 """
+
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict

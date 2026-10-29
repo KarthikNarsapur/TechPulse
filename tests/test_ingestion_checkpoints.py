@@ -67,7 +67,11 @@ def test_ingestion_records_failure_without_persisting_exception_message(monkeypa
     status = MagicMock()
     store = MagicMock()
     monkeypatch.setattr(ingest, "_load_registry", lambda: [source])
-    monkeypatch.setattr(ingest, "fetch_source", lambda _source: (_ for _ in ()).throw(ValueError("secret query token")))
+    monkeypatch.setattr(
+        ingest,
+        "fetch_source",
+        lambda _source: (_ for _ in ()).throw(ValueError("secret query token")),
+    )
     monkeypatch.setattr(ingest, "UpdateStore", lambda: store)
     monkeypatch.setattr(ingest, "PollStatusStore", lambda: status)
 

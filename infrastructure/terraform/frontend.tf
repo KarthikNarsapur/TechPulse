@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "frontend" {
-  bucket        = "${local.name}-frontend-${data.aws_caller_identity.current.account_id}"
+  bucket = "${local.name}-frontend-${data.aws_caller_identity.current.account_id}"
   # Kept as a private, optional artifact bucket; Cloudflare Pages serves the frontend.
   force_destroy = true
 }

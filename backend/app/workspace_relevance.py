@@ -3,6 +3,7 @@
 The current external provider is the Anthropic Messages API. A future Bedrock
 provider can be selected without changing the ingestion contract.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,9 +43,9 @@ def _anthropic_api_key() -> str:
     secret_id = os.getenv("TECHPULSE_RELEVANCE_SECRET_ID", "").strip()
     if not secret_id:
         raise RuntimeError("TECHPULSE_RELEVANCE_SECRET_ID is not configured")
-    secret = boto3.client("secretsmanager", region_name=os.getenv("AWS_REGION", "ap-south-1")).get_secret_value(
-        SecretId=secret_id
-    )
+    secret = boto3.client(
+        "secretsmanager", region_name=os.getenv("AWS_REGION", "ap-south-1")
+    ).get_secret_value(SecretId=secret_id)
     value = secret.get("SecretString", "")
     if not value:
         raise RuntimeError("Workspace relevance API secret is empty")
@@ -88,12 +89,18 @@ def _classify_anthropic(item: dict[str, Any]) -> dict[str, Any]:
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         },
-        json={"model": model, "max_tokens": 1200, "messages": [{"role": "user", "content": json.dumps(prompt)}]},
+        json={
+            "model": model,
+            "max_tokens": 1200,
+            "messages": [{"role": "user", "content": json.dumps(prompt)}],
+        },
         timeout=15.0,
     )
     response.raise_for_status()
     body = response.json()
-    raw = "\n".join(part.get("text", "") for part in body.get("content", []) if part.get("type") == "text").strip()
+    raw = "\n".join(
+        part.get("text", "") for part in body.get("content", []) if part.get("type") == "text"
+    ).strip()
     result = json.loads(raw)
     valid_ids = set(WORKSPACES)
     relevance = [x for x in result.get("department_relevance", []) if x in valid_ids]
@@ -120,7 +127,11 @@ def _classify_anthropic(item: dict[str, Any]) -> dict[str, Any]:
         "department_relevance": sorted(set(relevance)),
         "relevance_topics": topics,
         "department_relevance_scores": scores,
-        "primary_department": result.get("primary_department") if result.get("primary_department") in relevance else max(scores, key=scores.get) if scores else relevance[0],
+        "primary_department": result.get("primary_department")
+        if result.get("primary_department") in relevance
+        else max(scores, key=scores.get)
+        if scores
+        else relevance[0],
         "relevance_provider": "anthropic",
         "relevance_model_id": model,
     }
@@ -138,5 +149,8 @@ def classify_update_for_workspaces(item: dict[str, Any]) -> dict[str, Any]:
         baseline.update(model_result)
         return baseline
     except Exception as exc:  # noqa: BLE001 - ingestion must continue if AI is unavailable
-        logger.warning("Workspace relevance model unavailable; using deterministic fallback (%s)", type(exc).__name__)
+        logger.warning(
+            "Workspace relevance model unavailable; using deterministic fallback (%s)",
+            type(exc).__name__,
+        )
         return baseline

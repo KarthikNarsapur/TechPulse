@@ -3,6 +3,7 @@
 Keep provider transport separate from queue orchestration so worker behavior can
 be tested with a fake provider without invoking an external model service.
 """
+
 import json
 import os
 from typing import Any, Protocol
@@ -62,7 +63,9 @@ class BedrockClaudeProvider:
         request_body = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 1200,
-            "messages": [{"role": "user", "content": [{"type": "text", "text": json.dumps(prompt)}]}],
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": json.dumps(prompt)}]}
+            ],
         }
         response = self.client.invoke_model(
             modelId=self.model_id,
@@ -72,7 +75,9 @@ class BedrockClaudeProvider:
         )
         decoded = json.loads(response["body"].read())
         raw = "\n".join(
-            part.get("text", "") for part in decoded.get("content", []) if part.get("type") == "text"
+            part.get("text", "")
+            for part in decoded.get("content", [])
+            if part.get("type") == "text"
         ).strip()
         return AnalysisResult.model_validate(json.loads(raw))
 

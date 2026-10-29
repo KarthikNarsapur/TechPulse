@@ -1,4 +1,5 @@
 """RSS/Atom and GitHub release-feed adapters."""
+
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -41,7 +42,10 @@ def fetch_feed(source: SourceConfig, *, timeout_seconds: float = 15.0) -> list[N
         timeout=timeout_seconds,
         follow_redirects=True,
         max_redirects=3,
-        headers={"User-Agent": DEFAULT_USER_AGENT, "Accept": "application/atom+xml, application/rss+xml, application/xml, text/xml"},
+        headers={
+            "User-Agent": DEFAULT_USER_AGENT,
+            "Accept": "application/atom+xml, application/rss+xml, application/xml, text/xml",
+        },
     ) as client:
         response = client.get(str(source.url))
         response.raise_for_status()

@@ -30,11 +30,37 @@ def test_fanout_queues_only_enabled_valid_subscriptions(monkeypatch) -> None:
     table = MagicMock()
     table.query.return_value = {
         "Items": [
-            {"user_id": "user-1", "technology_id": "terraform", "channel": "email", "email": "dev@example.com"},
-            {"user_id": "user-2", "technology_id": "terraform", "channel": "slack", "secret_id": "techpulse-dev-notifications-slack"},
-            {"user_id": "user-3", "technology_id": "terraform", "channel": "email", "email": "off@example.com", "enabled": False},
-            {"user_id": "user-4", "technology_id": "terraform", "channel": "teams", "secret_id": "other-secret"},
-            {"user_id": "user-5", "technology_id": "terraform", "channel": "pager", "recipient": "pager@example.com"},
+            {
+                "user_id": "user-1",
+                "technology_id": "terraform",
+                "channel": "email",
+                "email": "dev@example.com",
+            },
+            {
+                "user_id": "user-2",
+                "technology_id": "terraform",
+                "channel": "slack",
+                "secret_id": "techpulse-dev-notifications-slack",
+            },
+            {
+                "user_id": "user-3",
+                "technology_id": "terraform",
+                "channel": "email",
+                "email": "off@example.com",
+                "enabled": False,
+            },
+            {
+                "user_id": "user-4",
+                "technology_id": "terraform",
+                "channel": "teams",
+                "secret_id": "other-secret",
+            },
+            {
+                "user_id": "user-5",
+                "technology_id": "terraform",
+                "channel": "pager",
+                "recipient": "pager@example.com",
+            },
         ]
     }
     queue = MagicMock()
@@ -49,7 +75,9 @@ def test_fanout_queues_only_enabled_valid_subscriptions(monkeypatch) -> None:
     assert count == 2
     assert table.query.call_args.kwargs["IndexName"] == "technology-index"
     assert queue.send_message.call_count == 2
-    messages = [json.loads(call.kwargs["MessageBody"]) for call in queue.send_message.call_args_list]
+    messages = [
+        json.loads(call.kwargs["MessageBody"]) for call in queue.send_message.call_args_list
+    ]
     assert {message["channel"] for message in messages} == {"email", "slack"}
     assert all(message["delivery_id"] for message in messages)
     assert all("https://example.com/releases/2" in message["body"] for message in messages)
@@ -59,7 +87,12 @@ def test_fanout_uses_stable_delivery_id_for_same_revision(monkeypatch) -> None:
     table = MagicMock()
     table.query.return_value = {
         "Items": [
-            {"user_id": "user-1", "technology_id": "terraform", "channel": "email", "email": "dev@example.com"}
+            {
+                "user_id": "user-1",
+                "technology_id": "terraform",
+                "channel": "email",
+                "email": "dev@example.com",
+            }
         ]
     }
     queue = MagicMock()
@@ -81,7 +114,12 @@ def test_fanout_requires_queue_when_a_subscription_matches(monkeypatch) -> None:
     table = MagicMock()
     table.query.return_value = {
         "Items": [
-            {"user_id": "user-1", "technology_id": "terraform", "channel": "email", "email": "dev@example.com"}
+            {
+                "user_id": "user-1",
+                "technology_id": "terraform",
+                "channel": "email",
+                "email": "dev@example.com",
+            }
         ]
     }
     monkeypatch.delenv("TECHPULSE_NOTIFICATIONS_QUEUE_URL", raising=False)
@@ -99,6 +137,9 @@ def test_fanout_does_not_require_queue_without_subscribers(monkeypatch) -> None:
     monkeypatch.delenv("TECHPULSE_NOTIFICATIONS_QUEUE_URL", raising=False)
     monkeypatch.setattr("app.handlers.analyze._table", lambda name: table)
 
-    assert _enqueue_subscriber_notifications(
-        _update(), _analysis(), priority=Priority.MEDIUM.value, content_hash="hash-1"
-    ) == 0
+    assert (
+        _enqueue_subscriber_notifications(
+            _update(), _analysis(), priority=Priority.MEDIUM.value, content_hash="hash-1"
+        )
+        == 0
+    )

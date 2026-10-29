@@ -3,6 +3,7 @@
 AI extraction/classification/summary uses one structured call per new content
 version. Priority and deadline logic remain deterministic.
 """
+
 import hashlib
 import json
 import logging
@@ -35,6 +36,7 @@ def _invoke_model(update: dict[str, Any], *, model_id: str, prompt_version: str)
         raise ValueError("A model ID is required for Bedrock analysis")
     return provider.analyze(update)
 
+
 def _enqueue_subscriber_notifications(
     update: dict[str, Any],
     result: AnalysisResult,
@@ -66,9 +68,13 @@ def _enqueue_subscriber_notifications(
             continue
         channel = str(subscription.get("channel", "email")).lower()
         if channel == "email":
-            recipient = str(subscription.get("email") or subscription.get("recipient") or "").strip()
+            recipient = str(
+                subscription.get("email") or subscription.get("recipient") or ""
+            ).strip()
             if not recipient:
-                logger.warning("Skipping email subscription without recipient for technology=%s", technology)
+                logger.warning(
+                    "Skipping email subscription without recipient for technology=%s", technology
+                )
                 continue
             destination = {"recipient": recipient}
         elif channel in {"slack", "teams"}:
@@ -81,40 +87,52 @@ def _enqueue_subscriber_notifications(
             logger.warning("Skipping unsupported notification channel=%s", channel)
             continue
 
-        user_id = str(subscription.get("user_id") or destination.get("recipient") or destination.get("secret_id"))
+        user_id = str(
+            subscription.get("user_id")
+            or destination.get("recipient")
+            or destination.get("secret_id")
+        )
         delivery_id = hashlib.sha256(
             f"{update['update_id']}:{content_hash}:{user_id}:{channel}".encode("utf-8")
         ).hexdigest()
-        eligible.append({
-            "delivery_id": delivery_id,
-            "channel": channel,
-            **destination,
-            "subject": f"[TechPulse {priority.upper()}] {str(update.get('title', 'Engineering update'))[:160]}",
-            "body": (
-                f"{str(update.get('title', 'Engineering update'))[:500]}\n\n"
-                f"{result.summary[:3000]}\n\n"
-                f"Technology: {technology}\nPriority: {priority}\n"
-                f"Source: {update.get('canonical_url', '')}"
-            ),
-            "update_id": str(update.get("update_id", "")),
-            "content_hash": content_hash,
-        })
+        eligible.append(
+            {
+                "delivery_id": delivery_id,
+                "channel": channel,
+                **destination,
+                "subject": f"[TechPulse {priority.upper()}] {str(update.get('title', 'Engineering update'))[:160]}",
+                "body": (
+                    f"{str(update.get('title', 'Engineering update'))[:500]}\n\n"
+                    f"{result.summary[:3000]}\n\n"
+                    f"Technology: {technology}\nPriority: {priority}\n"
+                    f"Source: {update.get('canonical_url', '')}"
+                ),
+                "update_id": str(update.get("update_id", "")),
+                "content_hash": content_hash,
+            }
+        )
 
     if not eligible:
         return 0
     queue_url = os.getenv("TECHPULSE_NOTIFICATIONS_QUEUE_URL")
     if not queue_url:
-        raise RuntimeError("TECHPULSE_NOTIFICATIONS_QUEUE_URL must be configured when subscriptions match")
+        raise RuntimeError(
+            "TECHPULSE_NOTIFICATIONS_QUEUE_URL must be configured when subscriptions match"
+        )
 
     queue = boto3.client("sqs", region_name=os.getenv("AWS_REGION", "ap-south-1"))
     for payload in eligible:
         queue.send_message(QueueUrl=queue_url, MessageBody=json.dumps(payload))
-    logger.info(json.dumps({
-        "event": "subscriber_notifications_enqueued",
-        "technology": technology,
-        "count": len(eligible),
-        "content_hash": content_hash,
-    }))
+    logger.info(
+        json.dumps(
+            {
+                "event": "subscriber_notifications_enqueued",
+                "technology": technology,
+                "count": len(eligible),
+                "content_hash": content_hash,
+            }
+        )
+    )
     return len(eligible)
 
 
@@ -148,14 +166,16 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 result = AnalysisResult.model_validate(cached["result"])
             elif model_id:
                 result = _invoke_model(update, model_id=model_id, prompt_version=prompt_version)
-                analyses.put_item(Item={
-                    "update_id": update_id,
-                    "analysis_version": cache_key,
-                    "content_hash": content_hash,
-                    "model_id": model_id,
-                    "prompt_version": prompt_version,
-                    "result": result.model_dump(mode="json"),
-                })
+                analyses.put_item(
+                    Item={
+                        "update_id": update_id,
+                        "analysis_version": cache_key,
+                        "content_hash": content_hash,
+                        "model_id": model_id,
+                        "prompt_version": prompt_version,
+                        "result": result.model_dump(mode="json"),
+                    }
+                )
             else:
                 # Safe degraded mode: do not make up a summary when AI is disabled.
                 result = AnalysisResult(
@@ -198,13 +218,17 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 priority=priority.value,
                 content_hash=content_hash,
             )
-            logger.info(json.dumps({
-                "event": "analysis_completed",
-                "update_id": update_id,
-                "category": result.category.value,
-                "priority": priority.value,
-                "requires_human_review": result.requires_human_review,
-            }))
+            logger.info(
+                json.dumps(
+                    {
+                        "event": "analysis_completed",
+                        "update_id": update_id,
+                        "category": result.category.value,
+                        "priority": priority.value,
+                        "requires_human_review": result.requires_human_review,
+                    }
+                )
+            )
         except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
             logger.warning("Invalid analysis record %s: %s", message_id, type(exc).__name__)
             failures.append({"itemIdentifier": message_id})

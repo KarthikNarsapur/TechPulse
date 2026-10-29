@@ -36,7 +36,7 @@ locals {
     TECHPULSE_RELEVANCE_SECRET_ID     = local.relevance_secret_name
     TECHPULSE_RELEVANCE_MODEL_ID      = var.workspace_relevance_model_id
     TECHPULSE_CORS_ORIGINS            = join(",", concat(var.frontend_allowed_origins, [trimsuffix(var.cloudflare_frontend_url, "/")]))
-    TECHPULSE_INGESTION_QUEUE_URL    = aws_sqs_queue.ingestion.url
+    TECHPULSE_INGESTION_QUEUE_URL     = aws_sqs_queue.ingestion.url
     TECHPULSE_ANALYSIS_QUEUE_URL      = aws_sqs_queue.analysis.url
     TECHPULSE_NOTIFICATIONS_QUEUE_URL = aws_sqs_queue.notifications.url
   }
@@ -310,13 +310,13 @@ resource "aws_iam_role_policy" "lambda_queue_access" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["sqs:SendMessage"]
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
         Resource = [aws_sqs_queue.ingestion.arn, aws_sqs_queue.analysis.arn, aws_sqs_queue.notifications.arn]
       },
       {
-        Effect = "Allow"
-        Action = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ChangeMessageVisibility"]
+        Effect   = "Allow"
+        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ChangeMessageVisibility"]
         Resource = [aws_sqs_queue.ingestion.arn, aws_sqs_queue.analysis.arn, aws_sqs_queue.notifications.arn]
       }
     ]
@@ -332,8 +332,8 @@ resource "aws_iam_role_policy" "lambda_ai_email" {
       { Effect = "Allow", Action = ["bedrock:InvokeModel"], Resource = "*" },
       { Effect = "Allow", Action = ["ses:SendEmail", "ses:SendRawEmail"], Resource = "*" },
       {
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = ["arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:techpulse-${var.environment}-notifications-*", "arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${local.relevance_secret_name}*"]
       }
     ]

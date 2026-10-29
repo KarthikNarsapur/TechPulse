@@ -68,7 +68,9 @@ def test_upsert_revision_marks_material_change_pending() -> None:
         }
     }
 
-    assert store.upsert_revision(_update(content_hash="hash-2", title="Updated release")) == "changed"
+    assert (
+        store.upsert_revision(_update(content_hash="hash-2", title="Updated release")) == "changed"
+    )
     call = store.table.update_item.call_args.kwargs
     assert call["ExpressionAttributeValues"][":previous_hash"] == "hash-1"
     assert call["ExpressionAttributeValues"][":revision"] == 4
