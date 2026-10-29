@@ -17,7 +17,7 @@ data "aws_partition" "current" {}
 locals {
   name                  = "${var.project_name}-${var.environment}"
   cognito_domain_prefix = var.cognito_domain_prefix != "" ? var.cognito_domain_prefix : "${var.project_name}-${var.environment}-${data.aws_caller_identity.current.account_id}"
-  relevance_secret_name = var.workspace_relevance_secret_name != "" ? var.workspace_relevance_secret_name : "${local.name}-anthropic-api-key"
+  relevance_secret_name = var.workspace_relevance_secret_name != "" ? var.workspace_relevance_secret_name : "${local.name}-${var.workspace_relevance_provider}-api-key"
   common_environment = {
     TECHPULSE_ENVIRONMENT             = var.environment
     TECHPULSE_AWS_REGION              = var.aws_region
@@ -330,7 +330,14 @@ resource "aws_iam_role_policy" "lambda_ai_email" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["bedrock:InvokeModel"], Resource = "*" },
-      { Effect = "Allow", Action = ["ses:SendEmail", "ses:SendRawEmail"], Resource = "*" },
+      {
+        # Identity ARNs differ for address vs domain verification, so scope by the sender
+        # address instead; the role can send only as the configured TechPulse sender.
+        Effect    = "Allow"
+        Action    = ["ses:SendEmail", "ses:SendRawEmail"]
+        Resource  = "*"
+        Condition = { StringEquals = { "ses:FromAddress" = var.ses_from_address } }
+      },
       {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]

@@ -33,6 +33,9 @@ class MemoryUpdateStore:
     def __init__(self) -> None:
         self.items = {}
 
+    def get(self, update_id):
+        return self.items.get(update_id)
+
     def upsert_revision(self, update) -> str:
         self.items[update.update_id] = update.model_dump(mode="json")
         return "new"

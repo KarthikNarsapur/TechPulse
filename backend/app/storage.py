@@ -131,6 +131,7 @@ class UpdateStore:
                     "source_id = :source, vendor = :vendor, technology = :technology, "
                     "department_relevance = :departments, relevance_topics = :topics, "
                     "department_relevance_scores = :scores, primary_department = :primary_department, "
+                    "relevance_provider = :relevance_provider, relevance_model_id = :relevance_model_id, "
                     "external_id = :external_id, last_seen_at = :seen, revision = :revision, "
                     "analysis_status = :status REMOVE #summary, #category, #priority, analysis_confidence"
                 ),
@@ -155,6 +156,8 @@ class UpdateStore:
                     ":topics": update.relevance_topics,
                     ":scores": update.department_relevance_scores,
                     ":primary_department": update.primary_department,
+                    ":relevance_provider": update.relevance_provider,
+                    ":relevance_model_id": update.relevance_model_id,
                     ":external_id": update.external_id or "",
                     ":seen": now,
                     ":revision": int(existing.get("revision", 1)) + 1,

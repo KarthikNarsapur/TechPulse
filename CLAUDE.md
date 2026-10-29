@@ -42,9 +42,13 @@ Verify paths and current implementations before relying on this map; the reposit
 ### Workspace smart sorting
 
 - The ingestion path should call `classify_update_for_workspaces` before persisting each normalized update.
-- Preferred provider is selected by `TECHPULSE_RELEVANCE_PROVIDER`; supported values currently include `anthropic` and `deterministic`.
-- Anthropic credentials are read from AWS Secrets Manager using `TECHPULSE_RELEVANCE_SECRET_ID`.
-- The model is configured with `TECHPULSE_RELEVANCE_MODEL_ID`. Verify the model ID is currently supported by the Anthropic API before changing it.
+- Preferred provider is selected by `TECHPULSE_RELEVANCE_PROVIDER`; supported values are `groq`, `anthropic`, and `deterministic`. Terraform defaults to `groq` (free tier) until funding allows `anthropic`; the previous `deterministic` default is kept commented out in `variables.tf`. A Claude Pro/Max subscription does not include Anthropic API access.
+- Deterministic keyword rules (`relevance.py`) are always the fallback for every provider and must not be removed.
+- Groq uses strict JSON-schema structured outputs on `openai/gpt-oss-20b` via `httpx` with `reasoning_effort: low`. Anthropic uses the official `anthropic` Python SDK (1.x) with structured outputs and `effort: low`. Both share one prompt, schema, and validator.
+- A provider 429 starts a cooldown (capped at 300 s) during which deterministic rules are used without calling the provider. Updates classified by the fallback are not retried while their content is unchanged.
+- Unchanged content (same `content_hash`) is never sent to the model.
+- Provider API keys are read from AWS Secrets Manager using `TECHPULSE_RELEVANCE_SECRET_ID` (default secret name `techpulse-<env>-<provider>-api-key`).
+- The model is configured with `TECHPULSE_RELEVANCE_MODEL_ID`; blank uses the provider default. Verify a model ID is currently supported by the provider before changing it.
 - Validate all returned workspace IDs against the known workspace list. Keep relevance topics and scores evidence-based; do not force a match when none is justified.
 - If the model/API/secret is unavailable or the response cannot be parsed, ingestion should continue using deterministic rules.
 - Preserve model-generated fields when API responses are serialized; do not overwrite a successful model classification with deterministic classification later in the pipeline.
@@ -56,7 +60,7 @@ Verify paths and current implementations before relying on this map; the reposit
 - Email delivery uses `TECHPULSE_SES_FROM_ADDRESS` as the SES sender and sends via the AWS SDK in `backend/app/handlers/notify.py`.
 - The analysis handler queues notifications for enabled technology subscriptions; the notification worker sends queued email.
 - The deployment workflow passes the GitHub environment secret `TECHPULSE_SES_FROM_ADDRESS` to Terraform as `TF_VAR_ses_from_address`.
-- The Terraform SES IAM permission is currently broad; consider least-privilege SES identity scoping if it can be implemented without breaking delivery.
+- The Terraform SES IAM permission is scoped with an `ses:FromAddress` condition to the configured sender. The Lambda role is still shared by all functions.
 - Never claim an email was delivered just because a queue message was accepted. Distinguish queued, SES accepted, and inbox received.
 - Email tests must cover missing sender/recipient, SES API errors, notification retry behavior, and duplicate-delivery protection.
 - Avoid sending real emails in automated unit tests; mock the SES client.
@@ -77,7 +81,19 @@ Verify paths and current implementations before relying on this map; the reposit
 
 **Current status:** SES setup and live email delivery have not been confirmed. Do not mark this complete until the end-to-end test passes.
 
-### P0 — Configure Claude smart sorting
+### P0 — Configure Groq smart sorting (free tier, current default)
+
+1. Create a Groq account and an API key in the Groq console. Check the free-plan limits for `openai/gpt-oss-20b` on the console limits page; free-tier quotas change.
+2. In AWS Secrets Manager in `ap-south-1`, create a secret named `techpulse-dev-groq-api-key` with the API key as its secret value. Never paste the key into source code, logs, or chat.
+3. Deploy via the reviewed `dev` workflow; the deploy step reports the active relevance provider.
+4. Trigger ingestion of a **new** update and inspect the stored item for `relevance_provider=groq` and `relevance_model_id=openai/gpt-oss-20b`.
+5. Test a no-match case, a bad key (expect deterministic fallback, no key in logs), and rate limiting (expect a cooldown warning, ingestion still succeeds).
+
+**Current status:** Code and unit tests are present. The Groq account, secret, deployment, and live classification have not been confirmed.
+
+### Optional (paid) — Configure Claude smart sorting
+
+Skip this while Groq is in use. To switch, set Terraform variable `workspace_relevance_provider = "anthropic"`.
 
 1. Obtain a valid Anthropic API key from the Anthropic Console with API access and billing enabled. A Claude Code CLI login/session token is not necessarily a Messages API key.
 2. In AWS Secrets Manager in `ap-south-1`, create a secret named `techpulse-dev-anthropic-api-key` with the API key as its secret value. Never paste the key into source code, logs, or chat.
@@ -92,7 +108,7 @@ Verify paths and current implementations before relying on this map; the reposit
 8. Test several different announcements against the intended workspaces, including a case with no strong match. Confirm the UI filters and sorts correctly.
 9. Test a bad/missing secret and Anthropic timeout. Ingestion must still succeed with deterministic fallback. Logs must not expose the API key or announcement data beyond what is operationally necessary.
 
-**Current status:** The classifier code is present and wired into ingestion, and Terraform defaults the provider to Anthropic. However, the AWS secret has not been confirmed created, the API key has not been verified, and live classification has not been confirmed. Treat the feature as **pending setup and end-to-end verification**.
+**Current status:** The classifier code is present and wired into ingestion. Terraform defaults the provider to `groq`, so the Anthropic path is disabled unless explicitly enabled. However, the AWS secret has not been confirmed created, the API key has not been verified, and live classification has not been confirmed. Treat the feature as **pending setup and end-to-end verification**.
 
 ## Deployment and verification checklist
 

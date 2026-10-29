@@ -203,6 +203,26 @@ jobs:
             echo "Published code for $function"
           done
 
+      - name: Report notification and relevance configuration
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for function in ingest notify; do
+            name="techpulse-${{ inputs.environment }}-$function"
+            sender="$(aws lambda get-function-configuration --function-name "$name" \
+              --query 'Environment.Variables.TECHPULSE_SES_FROM_ADDRESS' --output text)"
+            provider="$(aws lambda get-function-configuration --function-name "$name" \
+              --query 'Environment.Variables.TECHPULSE_RELEVANCE_PROVIDER' --output text)"
+            # Report presence only; never print the sender value into workflow logs.
+            if [[ -z "$sender" || "$sender" == "None" ]]; then
+              echo "::warning::$name has no TECHPULSE_SES_FROM_ADDRESS; email alerts will fail."
+            else
+              echo "$name: SES sender is set"
+            fi
+            echo "$name: relevance provider is $provider"
+          done
+
       - name: Build frontend using deployed endpoints
         if: inputs.action == 'apply'
         shell: bash

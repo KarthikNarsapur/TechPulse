@@ -267,7 +267,8 @@ DEPARTMENT_RULES: dict[str, tuple[tuple[str, ...], ...]] = {
 
 def classify_update(item: dict[str, Any]) -> dict[str, Any]:
     """Attach department relevance, preserving successful model classifications."""
-    if item.get("relevance_provider") == "anthropic" and isinstance(
+    # Any model provider (groq, anthropic) wins over keyword rules once it has classified.
+    if item.get("relevance_provider") not in (None, "", "deterministic") and isinstance(
         item.get("department_relevance"), list
     ):
         return item

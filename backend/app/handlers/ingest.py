@@ -10,6 +10,7 @@ import boto3
 
 from app.adapters.registry import fetch_source
 from app.models import NormalizedUpdate, SourceConfig
+from app.relevance import classify_update
 from app.workspace_relevance import classify_update_for_workspaces
 from app.source_registry import load_sources
 from app.storage import PollStatusStore, SourceStore, UpdateStore
@@ -117,9 +118,14 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             source_new = 0
             source_changed = 0
             for update in updates:
-                update = NormalizedUpdate.model_validate(
-                    classify_update_for_workspaces(update.model_dump(mode="python"))
-                )
+                existing = store.get(update.update_id)
+                if existing and existing.get("content_hash") == update.content_hash:
+                    # Unchanged content keeps its stored relevance, so skip the paid model
+                    # call. Deterministic rules still cover a concurrent revision race.
+                    classified = classify_update(update.model_dump(mode="python"))
+                else:
+                    classified = classify_update_for_workspaces(update.model_dump(mode="python"))
+                update = NormalizedUpdate.model_validate(classified)
                 outcome = store.upsert_revision(update)
                 if outcome == "new":
                     source_new += 1

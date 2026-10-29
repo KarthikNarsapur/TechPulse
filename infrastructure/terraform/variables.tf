@@ -67,12 +67,14 @@ variable "cloudflare_frontend_url" {
 }
 
 variable "workspace_relevance_provider" {
-  description = "Workspace relevance provider: anthropic or deterministic."
+  description = "Workspace relevance provider: groq (free-tier API key), anthropic (paid Claude API key), or deterministic (keyword rules, no key). Keys live in Secrets Manager."
   type        = string
-  default     = "anthropic"
+  # Free keyword-rules sorting; restore this default if no AI provider key is available.
+  # default     = "deterministic"
+  default = "groq"
   validation {
-    condition     = contains(["anthropic", "deterministic"], var.workspace_relevance_provider)
-    error_message = "workspace_relevance_provider must be anthropic or deterministic."
+    condition     = contains(["groq", "anthropic", "deterministic"], var.workspace_relevance_provider)
+    error_message = "workspace_relevance_provider must be groq, anthropic, or deterministic."
   }
 }
 
@@ -83,7 +85,7 @@ variable "workspace_relevance_secret_name" {
 }
 
 variable "workspace_relevance_model_id" {
-  description = "Anthropic model ID used to classify workspace relevance."
+  description = "Model ID for the relevance provider. Blank uses the provider default (groq: openai/gpt-oss-20b, anthropic: claude-haiku-5-5)."
   type        = string
-  default     = "claude-haiku-5-5"
+  default     = ""
 }

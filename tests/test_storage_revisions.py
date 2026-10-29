@@ -76,3 +76,21 @@ def test_upsert_revision_marks_material_change_pending() -> None:
     assert call["ExpressionAttributeValues"][":revision"] == 4
     assert call["ExpressionAttributeValues"][":status"] == "pending"
     assert "REMOVE #summary, #category, #priority" in call["UpdateExpression"]
+
+
+def test_upsert_revision_persists_relevance_provider_on_change() -> None:
+    store = UpdateStore()
+    store._table = MagicMock()
+    store.table.put_item.side_effect = _conditional_conflict()
+    store.table.get_item.return_value = {
+        "Item": {"update_id": "stable-url-id", "content_hash": "hash-1", "revision": 1}
+    }
+    update = _update(content_hash="hash-2").model_copy(
+        update={"relevance_provider": "anthropic", "relevance_model_id": "claude-haiku-5-5"}
+    )
+
+    assert store.upsert_revision(update) == "changed"
+    kwargs = store.table.update_item.call_args.kwargs
+    assert "relevance_provider = :relevance_provider" in kwargs["UpdateExpression"]
+    assert kwargs["ExpressionAttributeValues"][":relevance_provider"] == "anthropic"
+    assert kwargs["ExpressionAttributeValues"][":relevance_model_id"] == "claude-haiku-5-5"

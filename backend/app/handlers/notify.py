@@ -31,10 +31,14 @@ ALLOWED_CHAT_HOSTS = (
 
 
 def _deliver_email(payload: dict[str, Any]) -> str:
-    sender = os.getenv("TECHPULSE_SES_FROM_ADDRESS")
-    recipient = payload.get("recipient")
-    if not sender or not recipient:
-        raise ValueError("email notifications require sender and recipient")
+    sender = os.getenv("TECHPULSE_SES_FROM_ADDRESS", "").strip()
+    if not sender:
+        # A deployment problem, not a bad record: the message is retried and lands in the
+        # DLQ, where it can be redriven once a verified sender is deployed.
+        raise RuntimeError("TECHPULSE_SES_FROM_ADDRESS is not configured")
+    recipient = str(payload.get("recipient") or "").strip()
+    if not recipient:
+        raise ValueError("email notifications require a recipient")
     response = boto3.client("ses", region_name=os.getenv("AWS_REGION", "ap-south-1")).send_email(
         Source=sender,
         Destination={"ToAddresses": [str(recipient)]},
@@ -44,6 +48,13 @@ def _deliver_email(payload: dict[str, Any]) -> str:
         },
     )
     return str(response["MessageId"])
+
+
+def _failure_label(exc: Exception) -> str:
+    """Short, address-free failure reason; SES error messages can echo recipient emails."""
+    if isinstance(exc, ClientError):
+        return f"ClientError:{exc.response.get('Error', {}).get('Code', 'Unknown')}"
+    return type(exc).__name__
 
 
 def _resolve_chat_webhook(secret_id: str) -> str:
@@ -247,7 +258,24 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                         claim_token,
                         status="failed",
                         now=int(time.time()),
-                        error=type(exc).__name__,
+                        error=_failure_label(exc),
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.exception("Unable to persist failed delivery state")
+            failures.append({"itemIdentifier": message_id})
+        except ClientError as exc:
+            logger.error(
+                "Notification delivery failed for message %s: %s", message_id, _failure_label(exc)
+            )
+            if claimed and delivery_id:
+                try:
+                    _mark_delivery(
+                        table,
+                        delivery_id,
+                        claim_token,
+                        status="failed",
+                        now=int(time.time()),
+                        error=_failure_label(exc),
                     )
                 except Exception:  # noqa: BLE001
                     logger.exception("Unable to persist failed delivery state")
@@ -262,7 +290,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                         claim_token,
                         status="failed",
                         now=int(time.time()),
-                        error=type(exc).__name__,
+                        error=_failure_label(exc),
                     )
                 except Exception:  # noqa: BLE001
                     logger.exception("Unable to persist failed delivery state")
