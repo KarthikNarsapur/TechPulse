@@ -1,0 +1,215 @@
+name: Deploy TechPulse code
+
+# Code-only continuous deployment: runs when a pull request is merged into main.
+# It publishes Lambda code and the frontend to an environment that already exists.
+# It never runs terraform apply; infrastructure is provisioned by deploy-aws.yml.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  # Shared with deploy-aws.yml so code and infrastructure deploys never overlap.
+  group: techpulse-deploy-dev
+  cancel-in-progress: false
+
+env:
+  ENVIRONMENT: dev
+  AWS_REGION: ap-south-1
+  # Pull request events check out a synthetic merge ref by default; deploy the real merge commit.
+  DEPLOY_REF: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+jobs:
+  verify:
+    name: Test merged code
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_REF }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app ../tests ../scripts
+      - run: PYTHONPATH=. pytest ../tests
+
+  deploy:
+    name: Deploy code to dev
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      TF_VAR_aws_region: ap-south-1
+      TF_VAR_environment: dev
+      TF_VAR_ses_from_address: ${{ secrets.TECHPULSE_SES_FROM_ADDRESS }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_REF }}
+
+      - name: Configure AWS credentials using GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Require an existing environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          STATE_BUCKET="techpulse-tfstate-${ACCOUNT_ID}-${AWS_REGION}"
+          if ! aws s3api head-bucket --bucket "$STATE_BUCKET" 2>/dev/null \
+            || ! aws lambda get-function --function-name "techpulse-${ENVIRONMENT}-api" >/dev/null 2>&1; then
+            echo "::error::Environment ${ENVIRONMENT} is not provisioned. Run 'Provision TechPulse infrastructure' first."
+            exit 1
+          fi
+          echo "TF_STATE_BUCKET=$STATE_BUCKET" >> "$GITHUB_ENV"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Package Lambda artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt -t /tmp/techpulse-lambda
+          rm -rf /tmp/techpulse-lambda/app
+          cp -R backend/app /tmp/techpulse-lambda/app
+          cp -R source-registry /tmp/techpulse-lambda/source-registry
+          mkdir -p infrastructure/terraform/dist
+          (cd /tmp/techpulse-lambda && zip -qr "$GITHUB_WORKSPACE/infrastructure/terraform/dist/api.zip" .)
+          cp infrastructure/terraform/dist/api.zip infrastructure/terraform/dist/workers.zip
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          required = {"app/handlers/api.py", "app/handlers/dispatch.py", "app/handlers/ingest.py",
+                      "app/handlers/analyze.py", "app/handlers/notify.py"}
+          for name in ("api.zip", "workers.zip"):
+              path = Path("infrastructure/terraform/dist") / name
+              with zipfile.ZipFile(path) as archive:
+                  missing = required - set(archive.namelist())
+              if missing:
+                  raise SystemExit(f"{path} is missing handler modules: {sorted(missing)}")
+              print(f"Validated {path} ({path.stat().st_size} bytes)")
+          PY
+
+      - name: Read infrastructure outputs (read-only)
+        working-directory: infrastructure/terraform
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=techpulse/${ENVIRONMENT}/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+          {
+            echo "API_URL=$(terraform output -raw api_endpoint)"
+            echo "FRONTEND_URL=$(terraform output -raw frontend_url)"
+            echo "COGNITO_DOMAIN=$(terraform output -raw cognito_hosted_ui_url)"
+            echo "COGNITO_CLIENT=$(terraform output -raw cognito_client_id)"
+          } >> "$GITHUB_ENV"
+
+      - name: Warn about pending infrastructure changes
+        working-directory: infrastructure/terraform
+        shell: bash
+        run: |
+          # Read-only drift check. This pipeline never applies infrastructure changes.
+          set +e
+          terraform plan -input=false -lock=false -detailed-exitcode -no-color > /tmp/plan.txt 2>&1
+          status=$?
+          set -e
+          if [[ $status -eq 2 ]]; then
+            echo "::warning::Terraform changes are pending and were NOT applied. Review them and run 'Provision TechPulse infrastructure' with the existing-environment override if they are intended."
+            grep -E '^\s+# |Plan:' /tmp/plan.txt || true
+          elif [[ $status -ne 0 ]]; then
+            echo "::warning::Infrastructure drift check failed; code deployment continues."
+            tail -20 /tmp/plan.txt
+          else
+            echo "Infrastructure matches the Terraform configuration."
+          fi
+
+      - name: Update Lambda code
+        shell: bash
+        run: |
+          set -euo pipefail
+          for function in api dispatch ingest analyze notify; do
+            aws lambda update-function-code \
+              --function-name "techpulse-${ENVIRONMENT}-$function" \
+              --zip-file "fileb://infrastructure/terraform/dist/$([[ "$function" == "api" ]] && echo api.zip || echo workers.zip)" \
+              --publish >/dev/null
+            aws lambda wait function-updated --function-name "techpulse-${ENVIRONMENT}-$function"
+            echo "Published code for $function"
+          done
+
+      - name: Build frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix frontend install
+          VITE_API_BASE_URL="$API_URL" \
+          VITE_COGNITO_HOSTED_UI_URL="$COGNITO_DOMAIN" \
+          VITE_COGNITO_CLIENT_ID="$COGNITO_CLIENT" \
+          VITE_COGNITO_REDIRECT_URI="$FRONTEND_URL/" \
+          VITE_COGNITO_LOGOUT_URI="$FRONTEND_URL/" \
+            npm --prefix frontend run build
+
+      - name: Deploy frontend to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+            echo "Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in GitHub Actions secrets." >&2
+            exit 1
+          fi
+          npx --yes wrangler deploy --config wrangler.jsonc
+          echo "TechPulse frontend: $FRONTEND_URL"
+
+      - name: Verify API health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if curl --fail --silent --show-error "$API_URL/health"; then
+              echo
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Health check failed; inspect API Gateway and Lambda CloudWatch logs." >&2
+          exit 1

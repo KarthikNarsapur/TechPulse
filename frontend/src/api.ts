@@ -6,6 +6,14 @@ export interface Technology {
   category: string;
 }
 
+export type ImpactLevel = "high" | "medium" | "low";
+
+export interface WorkspaceImpact {
+  level: ImpactLevel;
+  types: string[];
+  reason: string;
+}
+
 export interface Update {
   update_id: string;
   title: string;
@@ -20,6 +28,7 @@ export interface Update {
   relevance_topics?: Record<string, string[]>;
   department_relevance_scores?: Record<string, number>;
   primary_department?: string;
+  department_impact?: Record<string, WorkspaceImpact>;
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "");

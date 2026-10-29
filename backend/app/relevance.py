@@ -313,3 +313,25 @@ def classify_update(item: dict[str, Any]) -> dict[str, Any]:
     item["department_relevance_scores"] = scores
     item["primary_department"] = max(scores, key=scores.get) if scores else "general"
     return item
+
+
+PRIORITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1, "informational": 0}
+# Unassessed impact sorts above a confirmed low impact: unknown may still matter.
+IMPACT_RANK = {"high": 3, "medium": 2, None: 1, "low": 0}
+
+
+def workspace_rank(item: dict[str, Any], department: str) -> tuple[Any, ...]:
+    """Sort key (use reverse=True) for one workspace's feed.
+
+    Deterministic critical priority always leads; the model's advisory business impact
+    then ranks above the deterministic priority, relevance score, and recency.
+    """
+    priority = str(item.get("priority") or "informational")
+    impact = (item.get("department_impact") or {}).get(department) or {}
+    return (
+        priority == "critical",
+        IMPACT_RANK.get(impact.get("level"), 1),
+        PRIORITY_RANK.get(priority, 0),
+        (item.get("department_relevance_scores") or {}).get(department, 0),
+        item.get("published_at") or item.get("observed_at") or "",
+    )

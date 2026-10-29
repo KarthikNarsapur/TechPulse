@@ -1,4 +1,7 @@
-name: Deploy TechPulse to AWS
+name: Provision TechPulse infrastructure
+
+# Runs terraform apply/destroy. Use it to set up a new environment (or tear one down).
+# Routine code changes are deployed by deploy-code.yml when a pull request merges into main.
 
 on:
   workflow_dispatch:
@@ -29,6 +32,11 @@ on:
         required: true
         type: string
         default: ap-south-1
+      existing_environment_change:
+        description: "Allow apply on an environment that already exists (deliberate infrastructure change only)."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -69,6 +77,20 @@ jobs:
           aws sts get-caller-identity
           if [[ -z "${AWS_ACCOUNT_ID:-}" ]]; then
             echo "AWS_ACCOUNT_ID is not set; proceeding with the account authorized by AWS_DEPLOY_ROLE_ARN."
+          fi
+
+      - name: Require a new environment for apply
+        if: inputs.action == 'apply'
+        shell: bash
+        env:
+          ALLOW_EXISTING: ${{ inputs.existing_environment_change }}
+        run: |
+          if aws lambda get-function --function-name "techpulse-${{ inputs.environment }}-api" >/dev/null 2>&1; then
+            if [[ "$ALLOW_EXISTING" != "true" ]]; then
+              echo "::error::Environment ${{ inputs.environment }} already exists. Code changes deploy automatically when a pull request merges into main. To apply a deliberate infrastructure change, re-run with existing_environment_change enabled."
+              exit 1
+            fi
+            echo "::warning::Applying Terraform to existing environment ${{ inputs.environment }} (override enabled)."
           fi
 
       - name: Set up Terraform

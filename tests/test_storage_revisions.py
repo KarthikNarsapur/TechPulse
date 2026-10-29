@@ -94,3 +94,27 @@ def test_upsert_revision_persists_relevance_provider_on_change() -> None:
     assert "relevance_provider = :relevance_provider" in kwargs["UpdateExpression"]
     assert kwargs["ExpressionAttributeValues"][":relevance_provider"] == "anthropic"
     assert kwargs["ExpressionAttributeValues"][":relevance_model_id"] == "claude-haiku-5-5"
+    assert "department_impact = :impact" in kwargs["UpdateExpression"]
+
+
+def test_update_relevance_is_conditional_on_unchanged_content() -> None:
+    store = UpdateStore()
+    store._table = MagicMock()
+    update = _update(content_hash="hash-1").model_copy(
+        update={
+            "relevance_provider": "groq",
+            "relevance_version": "impact-v1",
+            "department_impact": {
+                "tc-general": {"level": "medium", "types": ["time_savings"], "reason": "r"}
+            },
+        }
+    )
+
+    assert store.update_relevance(update) is True
+    kwargs = store.table.update_item.call_args.kwargs
+    assert kwargs["ConditionExpression"] == "content_hash = :hash"
+    assert kwargs["ExpressionAttributeValues"][":hash"] == "hash-1"
+    assert kwargs["ExpressionAttributeValues"][":impact"]["tc-general"]["level"] == "medium"
+
+    store.table.update_item.side_effect = _conditional_conflict()
+    assert store.update_relevance(update) is False
