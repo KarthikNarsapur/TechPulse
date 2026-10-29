@@ -32,8 +32,15 @@ The pilot technology set includes AWS, Azure, Google Cloud, Kubernetes, Terrafor
 - `backend/app/storage.py`: DynamoDB persistence helpers.
 - `source-registry/`: configured source definitions.
 - `infrastructure/terraform/`: AWS infrastructure and IAM configuration.
-- `.github/workflows/ci.yml`: CI validation.
-- `.github/workflows/deploy-aws.yml`: manually triggered deployment workflow.
+- `.github/workflows/ci.yml`: CI validation on pull requests and pushes to `dev` and `main`.
+- `.github/workflows/deploy-code.yml`: code-only CD. Runs when a pull request merges into `main`; tests, then publishes Lambda code and the frontend to the existing `dev` environment. Never runs `terraform apply`; warns when Terraform changes are pending.
+- `.github/workflows/deploy-aws.yml`: manually triggered infrastructure provisioning (`terraform apply`/`destroy`). Apply refuses an existing environment unless `existing_environment_change` is enabled.
+
+## Branching and deployment
+
+- Push work only to the `dev` branch. Never push directly to `main`.
+- Changes reach AWS by opening a pull request from `dev` into `main`; merging it triggers `deploy-code.yml`.
+- Use `deploy-aws.yml` only to set up a new environment, or with the override for a deliberate, reviewed infrastructure change (IAM, environment variables, new resources). Code merges do not apply Terraform changes.
 
 Verify paths and current implementations before relying on this map; the repository may evolve.
 
@@ -46,7 +53,8 @@ Verify paths and current implementations before relying on this map; the reposit
 - Deterministic keyword rules (`relevance.py`) are always the fallback for every provider and must not be removed.
 - Groq uses strict JSON-schema structured outputs on `openai/gpt-oss-20b` via `httpx` with `reasoning_effort: low`. Anthropic uses the official `anthropic` Python SDK (1.x) with structured outputs and `effort: low`. Both share one prompt, schema, and validator.
 - A provider 429 starts a cooldown (capped at 300 s) during which deterministic rules are used without calling the provider. Updates classified by the fallback are not retried while their content is unchanged.
-- Unchanged content (same `content_hash`) is never sent to the model.
+- Unchanged content (same `content_hash`) is never sent to the model, except by the bounded backfill: each ingest run re-assesses at most `TECHPULSE_RELEVANCE_BACKFILL_PER_RUN` (default 1) stored updates from the last `TECHPULSE_RELEVANCE_BACKFILL_DAYS` (default 14) whose `relevance_version` is not current (fallback or older prompt). Bump `RELEVANCE_VERSION` when the prompt or schema changes. Backfill writes are conditional on the content hash.
+- The model also returns per-workspace business impact (`department_impact`: level high/medium/low, impact types, one-sentence reason). It is advisory; deterministic `priority` remains authoritative. Workspace feeds rank by: deterministic critical priority first, then impact (unassessed above low), then deterministic priority, relevance score, and recency. Keep the backend `workspace_rank` and frontend `compareForWorkspace` in sync.
 - Provider API keys are read from AWS Secrets Manager using `TECHPULSE_RELEVANCE_SECRET_ID` (default secret name `techpulse-<env>-<provider>-api-key`).
 - The model is configured with `TECHPULSE_RELEVANCE_MODEL_ID`; blank uses the provider default. Verify a model ID is currently supported by the provider before changing it.
 - Validate all returned workspace IDs against the known workspace list. Keep relevance topics and scores evidence-based; do not force a match when none is justified.
@@ -75,7 +83,7 @@ Verify paths and current implementations before relying on this map; the reposit
    - Name: `TECHPULSE_SES_FROM_ADDRESS`
    - Value: the exact SES-verified sender address.
 4. Confirm the deployed Lambda environment contains the sender variable after deployment. Do not put secrets in source files or Terraform state manually.
-5. Deploy through `.github/workflows/deploy-aws.yml` with action `apply`, environment `dev`, and region `ap-south-1`. Review the Terraform plan before applying.
+5. Lambda environment variables are Terraform-managed: after changing the GitHub secret, run `.github/workflows/deploy-aws.yml` with action `apply`, environment `dev`, region `ap-south-1`, and `existing_environment_change` enabled. Review the Terraform plan in the run log.
 6. Run an end-to-end test: subscribe to a technology, ingest a **new** update for it, verify the notification queue/worker, check CloudWatch logs, confirm SES acceptance, and check the inbox/spam folder.
 7. If delivery fails, inspect the notification DLQ, Lambda logs, SES identity/region, sandbox restrictions, IAM permissions, and the `TECHPULSE_SES_FROM_ADDRESS` value.
 
@@ -85,7 +93,7 @@ Verify paths and current implementations before relying on this map; the reposit
 
 1. Create a Groq account and an API key in the Groq console. Check the free-plan limits for `openai/gpt-oss-20b` on the console limits page; free-tier quotas change.
 2. In AWS Secrets Manager in `ap-south-1`, create a secret named `techpulse-dev-groq-api-key` with the API key as its secret value. Never paste the key into source code, logs, or chat.
-3. Deploy via the reviewed `dev` workflow; the deploy step reports the active relevance provider.
+3. The secret is read at runtime, so no deployment is needed after creating it; the infrastructure workflow's report step shows the active relevance provider.
 4. Trigger ingestion of a **new** update and inspect the stored item for `relevance_provider=groq` and `relevance_model_id=openai/gpt-oss-20b`.
 5. Test a no-match case, a bad key (expect deterministic fallback, no key in logs), and rate limiting (expect a cooldown warning, ingestion still succeeds).
 
@@ -103,7 +111,7 @@ Skip this while Groq is in use. To switch, set Terraform variable `workspace_rel
    - `TECHPULSE_RELEVANCE_SECRET_ID=techpulse-dev-anthropic-api-key`
    - `TECHPULSE_RELEVANCE_MODEL_ID` set to a model ID supported by the Anthropic Messages API.
 5. Confirm outbound network access from the ingestion Lambda to `https://api.anthropic.com/v1/messages`. If the Lambda is placed in a VPC, ensure an appropriate egress path exists.
-6. Deploy via the reviewed `dev` Terraform workflow.
+6. Switching provider changes Lambda environment variables, so run `deploy-aws.yml` with `existing_environment_change` enabled.
 7. Trigger ingestion and inspect a stored update for `relevance_provider`, `relevance_model_id`, `department_relevance`, `relevance_topics`, `department_relevance_scores`, and `primary_department`.
 8. Test several different announcements against the intended workspaces, including a case with no strong match. Confirm the UI filters and sorts correctly.
 9. Test a bad/missing secret and Anthropic timeout. Ingestion must still succeed with deterministic fallback. Logs must not expose the API key or announcement data beyond what is operationally necessary.
