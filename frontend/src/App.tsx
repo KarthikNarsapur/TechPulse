@@ -4,7 +4,7 @@ import {
   CircleAlert, Cloud, Command, GitBranch, LayoutDashboard, Search,
   Settings2, ShieldCheck, Sparkles, Workflow, LogOut,
 } from "lucide-react";
-import { DEFAULT_TECHNOLOGIES, getTechnologies, getUpdates, getSubscriptions, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type UserUpdateState, type Subscription, type Technology, type Update } from "./api";
+import { DEFAULT_TECHNOLOGIES, getTechnologies, getUpdates, getSubscriptions, getUserState, saveUserState, saveSubscription, removeSubscription, refreshUpdates, type UserUpdateState, type Subscription, type Technology, type Update, type WorkspaceImpact } from "./api";
 import { beginLogin, finishLoginCallback, isAuthConfigured, isRemoteApiConfigured, signOut } from "./auth";
 
 interface DepartmentWorkspace {
@@ -37,6 +37,42 @@ const DEPARTMENT_WORKSPACES: DepartmentWorkspace[] = [
 
 function priorityLabel(priority: Update["priority"]): string {
   return priority.charAt(0).toUpperCase() + priority.slice(1);
+}
+
+const PRIORITY_RANK: Record<Update["priority"], number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 0 };
+// Mirrors backend workspace_rank: unassessed impact (1) sorts above a confirmed low impact.
+const IMPACT_RANK: Record<WorkspaceImpact["level"], number> = { high: 3, medium: 2, low: 0 };
+const IMPACT_TYPE_LABELS: Record<string, string> = {
+  cost_savings: "Cost savings",
+  time_savings: "Time savings",
+  effort_reduction: "Less manual effort",
+  risk_reduction: "Risk reduction",
+  revenue_opportunity: "Revenue opportunity",
+  compliance: "Compliance",
+  required_action: "Action required",
+};
+
+// "All workspaces" has no single workspace, so it uses each update's primary department.
+function rankingWorkspace(update: Update, workspaceId: string): string {
+  return workspaceId === "all-workspaces" ? update.primary_department ?? "" : workspaceId;
+}
+
+function workspaceImpact(update: Update, workspaceId: string): WorkspaceImpact | undefined {
+  return update.department_impact?.[rankingWorkspace(update, workspaceId)];
+}
+
+function compareForWorkspace(a: Update, b: Update, workspaceId: string): number {
+  const impactRank = (update: Update) => {
+    const impact = workspaceImpact(update, workspaceId);
+    return impact ? IMPACT_RANK[impact.level] ?? 1 : 1;
+  };
+  const score = (update: Update) => update.department_relevance_scores?.[rankingWorkspace(update, workspaceId)] ?? 0;
+  const time = (update: Update) => new Date(update.published_at ?? update.observed_at ?? 0).getTime();
+  return Number(b.priority === "critical") - Number(a.priority === "critical")
+    || impactRank(b) - impactRank(a)
+    || PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
+    || score(b) - score(a)
+    || time(b) - time(a);
 }
 
 export default function App() {
@@ -199,13 +235,7 @@ export default function App() {
         .toLowerCase().includes(search.toLowerCase());
       return technologyMatches && departmentMatches && technologyMatchesWorkspace && searchMatches;
     });
-    if (activeWorkspace.id !== "all-workspaces" && selected === "all") {
-      return filtered.sort((a, b) =>
-        (b.department_relevance_scores?.[activeWorkspace.id] ?? 0) - (a.department_relevance_scores?.[activeWorkspace.id] ?? 0)
-        || new Date(b.published_at ?? b.observed_at ?? 0).getTime() - new Date(a.published_at ?? a.observed_at ?? 0).getTime()
-      );
-    }
-    return filtered;
+    return filtered.sort((a, b) => compareForWorkspace(a, b, activeWorkspace.id));
   }, [updates, selected, search, activeWorkspace]);
 
   if (authStatus === "checking") {
@@ -433,7 +463,9 @@ export default function App() {
             {error && <div className="inline-notice"><CircleAlert size={16} /> {error}</div>}
             {loading && <div className="loading-row">Connecting to TechPulse API<span className="loading-dots">•••</span></div>}
             <div className="updates-list">
-              {visibleUpdates.map((update) => (
+              {visibleUpdates.map((update) => {
+                const impact = workspaceImpact(update, activeWorkspace.id);
+                return (
                 <article className="update-card" key={update.update_id}>
                   <div className={`update-provider ${update.technology.toLowerCase().replace(/[^a-z0-9]/g, "")}`}><Workflow size={20} /></div>
                   <div className="update-main">
@@ -448,8 +480,19 @@ export default function App() {
                         ))}
                       </div>
                     )}
+                    {impact?.reason && (
+                      <p className="impact-reason"><span className="impact-reason-label">WHY IT MATTERS</span> {impact.reason}</p>
+                    )}
                     <div className="update-footer">
                       <span className={`priority priority-${update.priority}`}>{priorityLabel(update.priority)} priority</span>
+                      {impact ? (
+                        <span className={`impact-badge impact-${impact.level}`}>{priorityLabel(impact.level)} impact</span>
+                      ) : (
+                        <span className="impact-badge impact-pending" title="Business impact has not been assessed yet">Impact pending</span>
+                      )}
+                      {impact?.types.map((type) => (
+                        <span className="impact-type" key={type}>{IMPACT_TYPE_LABELS[type] ?? type}</span>
+                      ))}
                       <span className="verified-label"><ShieldCheck size={13} /> Source linked</span>
                       {authStatus === "authenticated" && (() => {
                         const state = userStates.find((item) => item.update_id === update.update_id);
@@ -468,7 +511,8 @@ export default function App() {
                   </div>
                   <a className="open-update" href={update.canonical_url} target="_blank" rel="noreferrer" aria-label="Open original announcement"><ArrowUpRight size={17} /></a>
                 </article>
-              ))}
+                );
+              })}
               {!loading && visibleUpdates.length === 0 && <div className="empty-state"><Search size={22} /><strong>No real updates found in the past 7 days</strong><span>Try Refresh updates later. TechPulse only shows real announcements from configured sources.</span></div>}
             </div>
             <div className="feed-end"><span /> YOU'RE ALL CAUGHT UP <span /></div>

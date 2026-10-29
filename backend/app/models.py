@@ -36,6 +36,25 @@ class Priority(StrEnum):
     INFORMATIONAL = "informational"
 
 
+class ImpactLevel(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class WorkspaceImpact(BaseModel):
+    """Model-assessed business impact of an update for one workspace.
+
+    Advisory only: deterministic `priority` stays authoritative for security urgency.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    level: ImpactLevel
+    types: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
 class SourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -73,6 +92,8 @@ class NormalizedUpdate(BaseModel):
     primary_department: str = "general"
     relevance_provider: str | None = None
     relevance_model_id: str | None = None
+    department_impact: dict[str, WorkspaceImpact] = Field(default_factory=dict)
+    relevance_version: str | None = None
 
     @staticmethod
     def normalize_url(url: str) -> str:

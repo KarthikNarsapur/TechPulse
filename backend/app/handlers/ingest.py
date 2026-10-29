@@ -3,7 +3,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import boto3
@@ -11,7 +11,11 @@ import boto3
 from app.adapters.registry import fetch_source
 from app.models import NormalizedUpdate, SourceConfig
 from app.relevance import classify_update
-from app.workspace_relevance import classify_update_for_workspaces
+from app.workspace_relevance import (
+    RELEVANCE_VERSION,
+    classify_update_for_workspaces,
+    needs_model_reclassification,
+)
 from app.source_registry import load_sources
 from app.storage import PollStatusStore, SourceStore, UpdateStore
 
@@ -64,6 +68,23 @@ def _enqueue_analysis(update_id: str, content_hash: str, source_id: str) -> None
     )
 
 
+def _backfill_relevance(store: UpdateStore, update: NormalizedUpdate) -> None:
+    """Re-assess unchanged content that only has a fallback or outdated classification."""
+    try:
+        classified = classify_update_for_workspaces(update.model_dump(mode="python"))
+        if classified.get("relevance_version") == RELEVANCE_VERSION:
+            store.update_relevance(NormalizedUpdate.model_validate(classified))
+    except Exception as exc:  # noqa: BLE001 - backfill must never fail a source poll
+        logger.warning("Relevance backfill skipped for an update (%s)", type(exc).__name__)
+
+
+def _recent(update: NormalizedUpdate, days: int) -> bool:
+    seen = update.published_at or update.observed_at
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    return seen >= datetime.now(timezone.utc) - timedelta(days=days)
+
+
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     is_sqs = bool(event.get("Records"))
     source_jobs: dict[str, str] = {}
@@ -98,6 +119,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     }
 
     store = UpdateStore()
+    # Free-tier quotas are small, so only a few stored updates are re-assessed per run;
+    # new and changed content always takes priority.
+    backfill_budget = int(os.getenv("TECHPULSE_RELEVANCE_BACKFILL_PER_RUN", "1"))
+    backfill_days = int(os.getenv("TECHPULSE_RELEVANCE_BACKFILL_DAYS", "14"))
     sources_processed = 0
     new_count = 0
     changed_count = 0
@@ -122,6 +147,13 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 if existing and existing.get("content_hash") == update.content_hash:
                     # Unchanged content keeps its stored relevance, so skip the paid model
                     # call. Deterministic rules still cover a concurrent revision race.
+                    if (
+                        backfill_budget > 0
+                        and needs_model_reclassification(existing)
+                        and _recent(update, backfill_days)
+                    ):
+                        backfill_budget -= 1
+                        _backfill_relevance(store, update)
                     classified = classify_update(update.model_dump(mode="python"))
                 else:
                     classified = classify_update_for_workspaces(update.model_dump(mode="python"))

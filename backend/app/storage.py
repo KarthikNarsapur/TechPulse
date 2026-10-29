@@ -132,6 +132,7 @@ class UpdateStore:
                     "department_relevance = :departments, relevance_topics = :topics, "
                     "department_relevance_scores = :scores, primary_department = :primary_department, "
                     "relevance_provider = :relevance_provider, relevance_model_id = :relevance_model_id, "
+                    "department_impact = :impact, relevance_version = :relevance_version, "
                     "external_id = :external_id, last_seen_at = :seen, revision = :revision, "
                     "analysis_status = :status REMOVE #summary, #category, #priority, analysis_confidence"
                 ),
@@ -158,6 +159,8 @@ class UpdateStore:
                     ":primary_department": update.primary_department,
                     ":relevance_provider": update.relevance_provider,
                     ":relevance_model_id": update.relevance_model_id,
+                    ":impact": item["department_impact"],
+                    ":relevance_version": update.relevance_version,
                     ":external_id": update.external_id or "",
                     ":seen": now,
                     ":revision": int(existing.get("revision", 1)) + 1,
@@ -169,6 +172,41 @@ class UpdateStore:
         except ClientError as exc:
             if exc.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
                 return "unchanged"
+            raise
+
+    def update_relevance(self, update: NormalizedUpdate) -> bool:
+        """Store a newer classification for unchanged content.
+
+        Returns False when the stored content has moved on, so a stale assessment never
+        overwrites a newer revision.
+        """
+        item = update.model_dump(mode="json")
+        try:
+            self.table.update_item(
+                Key={"update_id": update.update_id},
+                UpdateExpression=(
+                    "SET department_relevance = :departments, relevance_topics = :topics, "
+                    "department_relevance_scores = :scores, primary_department = :primary_department, "
+                    "department_impact = :impact, relevance_provider = :relevance_provider, "
+                    "relevance_model_id = :relevance_model_id, relevance_version = :relevance_version"
+                ),
+                ConditionExpression="content_hash = :hash",
+                ExpressionAttributeValues={
+                    ":departments": item["department_relevance"],
+                    ":topics": item["relevance_topics"],
+                    ":scores": item["department_relevance_scores"],
+                    ":primary_department": item["primary_department"],
+                    ":impact": item["department_impact"],
+                    ":relevance_provider": item["relevance_provider"],
+                    ":relevance_model_id": item["relevance_model_id"],
+                    ":relevance_version": item["relevance_version"],
+                    ":hash": update.content_hash,
+                },
+            )
+            return True
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+                return False
             raise
 
     def query_all(

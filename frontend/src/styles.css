@@ -335,3 +335,12 @@ h1 { font: 800 clamp(27px,3vw,37px)/1.18 Manrope, sans-serif; letter-spacing: -1
 .workspace-menu-option { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 9px; border: 0; border-radius: 6px; background: transparent; color: #d0d8df; text-align: left; font-size: 11px; cursor: pointer; }
 .workspace-menu-option:hover, .workspace-menu-option:focus-visible { outline: none; background: #1d2c39; color: #fff; }
 .workspace-menu-option.active { background: #173d3b; color: #8ce0d0; font-weight: 600; }
+.impact-reason { margin: 8px 0 0 !important; padding: 7px 9px; border-left: 2px solid #d9ece7; background: #f7fbfa; color: #4f6470 !important; }
+.impact-reason-label { margin-right: 4px; color: #82919a; font: 500 8px 'DM Mono', monospace; letter-spacing: .7px; }
+.impact-badge { border-radius: 4px; padding: 4px 6px; font: 500 8px 'DM Mono', monospace; }
+.impact-high { background: #e7f6ef; color: #1d7a55; }
+.impact-medium { background: #eef5ff; color: #527eb8; }
+.impact-low { background: #f3f4f6; color: #7b8790; }
+.impact-pending { background: transparent; border: 1px dashed #d3dade; color: #95a2a9; }
+.impact-type { border: 1px solid #e3e8eb; border-radius: 999px; padding: 3px 7px; color: #5f707a; font-size: 9px; line-height: 1.2; }
+.update-footer { flex-wrap: wrap; }

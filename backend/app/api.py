@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.config import get_settings
-from app.relevance import DEPARTMENT_RULES, classify_update
+from app.relevance import DEPARTMENT_RULES, classify_update, workspace_rank
 from app.source_registry import load_sources
 from app.storage import PollStatusStore, SourceStore, SubscriptionStore, UpdateStore, UserStateStore
 
@@ -188,13 +188,7 @@ def list_updates(
                 status_code=422, detail={"message": "Unknown department workspace."}
             )
         items = [item for item in items if department in item["department_relevance"]]
-        items.sort(
-            key=lambda item: (
-                item["department_relevance_scores"].get(department, 0),
-                item.get("published_at") or item.get("observed_at") or "",
-            ),
-            reverse=True,
-        )
+        items.sort(key=lambda item: workspace_rank(item, department), reverse=True)
     return {
         "items": items,
         "next_cursor": last_key,
