@@ -17,7 +17,7 @@ data "aws_partition" "current" {}
 locals {
   name                  = "${var.project_name}-${var.environment}"
   cognito_domain_prefix = var.cognito_domain_prefix != "" ? var.cognito_domain_prefix : "${var.project_name}-${var.environment}-${data.aws_caller_identity.current.account_id}"
-  relevance_secret_name = var.workspace_relevance_secret_name != "" ? var.workspace_relevance_secret_name : "${local.name}-${var.workspace_relevance_provider}-api-key"
+  relevance_secret_name = var.workspace_relevance_secret_name
   common_environment = {
     TECHPULSE_ENVIRONMENT             = var.environment
     TECHPULSE_AWS_REGION              = var.aws_region
@@ -341,7 +341,7 @@ resource "aws_iam_role_policy" "lambda_ai_email" {
       {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        Resource = ["arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:techpulse-${var.environment}-notifications-*", "arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:${local.relevance_secret_name}*"]
+        Resource = ["arn:${data.aws_partition.current.partition}:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:techpulse-${var.environment}-notifications-*"]
       }
     ]
   })
@@ -401,7 +401,10 @@ resource "aws_lambda_function" "ingest" {
   publish          = true
 
   environment {
-    variables = local.common_environment
+    # Only ingest classifies relevance, so only it receives the provider API key.
+    variables = merge(local.common_environment, {
+      TECHPULSE_RELEVANCE_API_KEY = var.workspace_relevance_api_key
+    })
   }
   depends_on = [aws_iam_role_policy_attachment.lambda_basic, aws_iam_role_policy.lambda_data, aws_iam_role_policy.lambda_queue_access]
   lifecycle {

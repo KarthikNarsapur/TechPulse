@@ -176,6 +176,7 @@ def test_model_failures_fall_back_to_deterministic_rules(use_model, kwargs, capl
 def test_missing_secret_falls_back_without_calling_model(monkeypatch, caplog) -> None:
     monkeypatch.setenv("TECHPULSE_RELEVANCE_PROVIDER", "anthropic")
     monkeypatch.delenv("TECHPULSE_RELEVANCE_SECRET_ID", raising=False)
+    monkeypatch.delenv("TECHPULSE_RELEVANCE_API_KEY", raising=False)
     workspace_relevance._relevance_api_key.cache_clear()
     workspace_relevance._anthropic_client.cache_clear()
 
@@ -586,3 +587,27 @@ def test_api_preserves_groq_classification(monkeypatch) -> None:
     )
 
     assert response.json()["items"] == []
+
+
+def test_api_key_from_environment_skips_secrets_manager(monkeypatch) -> None:
+    monkeypatch.setenv("TECHPULSE_RELEVANCE_API_KEY", " env-key ")
+    monkeypatch.setenv("TECHPULSE_RELEVANCE_SECRET_ID", "techpulse-dev-groq-api-key")
+    secrets_client = MagicMock()
+    monkeypatch.setattr(workspace_relevance.boto3, "client", lambda *a, **k: secrets_client)
+    workspace_relevance._relevance_api_key.cache_clear()
+
+    assert workspace_relevance._relevance_api_key() == "env-key"
+    secrets_client.get_secret_value.assert_not_called()
+    workspace_relevance._relevance_api_key.cache_clear()
+
+
+def test_secrets_manager_is_optional_fallback(monkeypatch) -> None:
+    monkeypatch.delenv("TECHPULSE_RELEVANCE_API_KEY", raising=False)
+    monkeypatch.setenv("TECHPULSE_RELEVANCE_SECRET_ID", "techpulse-dev-groq-api-key")
+    secrets_client = MagicMock()
+    secrets_client.get_secret_value.return_value = {"SecretString": '{"api_key": "sm-key"}'}
+    monkeypatch.setattr(workspace_relevance.boto3, "client", lambda *a, **k: secrets_client)
+    workspace_relevance._relevance_api_key.cache_clear()
+
+    assert workspace_relevance._relevance_api_key() == "sm-key"
+    workspace_relevance._relevance_api_key.cache_clear()

@@ -79,9 +79,16 @@ variable "workspace_relevance_provider" {
 }
 
 variable "workspace_relevance_secret_name" {
-  description = "Secrets Manager secret name containing the Anthropic API key."
+  description = "Optional Secrets Manager fallback for the relevance API key. Blank disables Secrets Manager reads."
   type        = string
   default     = ""
+}
+
+variable "workspace_relevance_api_key" {
+  description = "Relevance provider API key, passed from the GitHub secret TECHPULSE_RELEVANCE_API_KEY."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "workspace_relevance_model_id" {

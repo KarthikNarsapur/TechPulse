@@ -73,9 +73,14 @@ class RateLimitedError(Exception):
 
 @lru_cache(maxsize=1)
 def _relevance_api_key() -> str:
+    # Preferred: a Lambda environment variable injected from a GitHub secret, so runtime
+    # makes no Secrets Manager (and KMS) calls. Secrets Manager is an optional fallback.
+    value = os.getenv("TECHPULSE_RELEVANCE_API_KEY", "").strip()
+    if value:
+        return value
     secret_id = os.getenv("TECHPULSE_RELEVANCE_SECRET_ID", "").strip()
     if not secret_id:
-        raise RuntimeError("TECHPULSE_RELEVANCE_SECRET_ID is not configured")
+        raise RuntimeError("No workspace relevance API key is configured")
     secret = boto3.client(
         "secretsmanager", region_name=os.getenv("AWS_REGION", "ap-south-1")
     ).get_secret_value(SecretId=secret_id)

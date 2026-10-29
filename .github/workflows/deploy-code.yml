@@ -55,6 +55,7 @@ jobs:
       TF_VAR_aws_region: ap-south-1
       TF_VAR_environment: dev
       TF_VAR_ses_from_address: ${{ secrets.TECHPULSE_SES_FROM_ADDRESS }}
+      TF_VAR_workspace_relevance_api_key: ${{ secrets.TECHPULSE_RELEVANCE_API_KEY }}
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
     steps:

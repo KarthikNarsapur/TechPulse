@@ -55,7 +55,7 @@ Verify paths and current implementations before relying on this map; the reposit
 - A provider 429 starts a cooldown (capped at 300 s) during which deterministic rules are used without calling the provider. Updates classified by the fallback are not retried while their content is unchanged.
 - Unchanged content (same `content_hash`) is never sent to the model, except by the bounded backfill: each ingest run re-assesses at most `TECHPULSE_RELEVANCE_BACKFILL_PER_RUN` (default 1) stored updates from the last `TECHPULSE_RELEVANCE_BACKFILL_DAYS` (default 14) whose `relevance_version` is not current (fallback or older prompt). Bump `RELEVANCE_VERSION` when the prompt or schema changes. Backfill writes are conditional on the content hash.
 - The model also returns per-workspace business impact (`department_impact`: level high/medium/low, impact types, one-sentence reason). It is advisory; deterministic `priority` remains authoritative. Workspace feeds rank by: deterministic critical priority first, then impact (unassessed above low), then deterministic priority, relevance score, and recency. Keep the backend `workspace_rank` and frontend `compareForWorkspace` in sync.
-- Provider API keys are read from AWS Secrets Manager using `TECHPULSE_RELEVANCE_SECRET_ID` (default secret name `techpulse-<env>-<provider>-api-key`).
+- The provider API key comes from the GitHub environment secret `TECHPULSE_RELEVANCE_API_KEY`, passed to Terraform as `TF_VAR_workspace_relevance_api_key` (sensitive) and set only on the ingest Lambda as `TECHPULSE_RELEVANCE_API_KEY`. This avoids per-cold-start Secrets Manager/KMS requests. It is visible to anyone who can read the ingest Lambda configuration and is stored in the encrypted Terraform state. Secrets Manager (`TECHPULSE_RELEVANCE_SECRET_ID`, Terraform `workspace_relevance_secret_name`) is an optional fallback, disabled by default.
 - The model is configured with `TECHPULSE_RELEVANCE_MODEL_ID`; blank uses the provider default. Verify a model ID is currently supported by the provider before changing it.
 - Validate all returned workspace IDs against the known workspace list. Keep relevance topics and scores evidence-based; do not force a match when none is justified.
 - If the model/API/secret is unavailable or the response cannot be parsed, ingestion should continue using deterministic rules.
@@ -92,8 +92,8 @@ Verify paths and current implementations before relying on this map; the reposit
 ### P0 — Configure Groq smart sorting (free tier, current default)
 
 1. Create a Groq account and an API key in the Groq console. Check the free-plan limits for `openai/gpt-oss-20b` on the console limits page; free-tier quotas change.
-2. In AWS Secrets Manager in `ap-south-1`, create a secret named `techpulse-dev-groq-api-key` with the API key as its secret value. Never paste the key into source code, logs, or chat.
-3. The secret is read at runtime, so no deployment is needed after creating it; the infrastructure workflow's report step shows the active relevance provider.
+2. In GitHub **Settings → Environments → dev → Environment secrets**, add `TECHPULSE_RELEVANCE_API_KEY` with the Groq key (a secret, not a variable). Never paste the key into source code, logs, or chat.
+3. The key is a Lambda environment variable, so apply it with `deploy-aws.yml` (`apply`, `dev`, `existing_environment_change` enabled) after adding or rotating it.
 4. Trigger ingestion of a **new** update and inspect the stored item for `relevance_provider=groq` and `relevance_model_id=openai/gpt-oss-20b`.
 5. Test a no-match case, a bad key (expect deterministic fallback, no key in logs), and rate limiting (expect a cooldown warning, ingestion still succeeds).
 
@@ -104,11 +104,11 @@ Verify paths and current implementations before relying on this map; the reposit
 Skip this while Groq is in use. To switch, set Terraform variable `workspace_relevance_provider = "anthropic"`.
 
 1. Obtain a valid Anthropic API key from the Anthropic Console with API access and billing enabled. A Claude Code CLI login/session token is not necessarily a Messages API key.
-2. In AWS Secrets Manager in `ap-south-1`, create a secret named `techpulse-dev-anthropic-api-key` with the API key as its secret value. Never paste the key into source code, logs, or chat.
-3. Confirm the `dev` Lambda execution role can call `secretsmanager:GetSecretValue` for that secret. Verify its IAM resource scope includes the exact secret ARN.
+2. Replace the GitHub environment secret `TECHPULSE_RELEVANCE_API_KEY` with the Anthropic API key. Never paste the key into source code, logs, or chat.
+3. Apply it with `deploy-aws.yml` and the `existing_environment_change` override.
 4. Confirm Terraform/deployed environment has:
    - `TECHPULSE_RELEVANCE_PROVIDER=anthropic`
-   - `TECHPULSE_RELEVANCE_SECRET_ID=techpulse-dev-anthropic-api-key`
+   - `TECHPULSE_RELEVANCE_API_KEY` set on the ingest Lambda (check presence only; never print it)
    - `TECHPULSE_RELEVANCE_MODEL_ID` set to a model ID supported by the Anthropic Messages API.
 5. Confirm outbound network access from the ingestion Lambda to `https://api.anthropic.com/v1/messages`. If the Lambda is placed in a VPC, ensure an appropriate egress path exists.
 6. Switching provider changes Lambda environment variables, so run `deploy-aws.yml` with `existing_environment_change` enabled.

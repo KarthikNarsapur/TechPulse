@@ -29,6 +29,7 @@ The `workflow_dispatch` button only appears for workflows on the default branch.
 - The OIDC provider must exist in the AWS account (`https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`).
 - Save the deployment role ARN as the GitHub secret `AWS_DEPLOY_ROLE_ARN`. Both workflows run in the GitHub environment `dev`, so the role trust policy must allow the subject `repo:KarthikNarsapur/TechPulse:environment:dev`.
 - Frontend deploys need `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+- Workspace sorting needs the `dev` environment secret `TECHPULSE_RELEVANCE_API_KEY` (the Groq or Anthropic key). It becomes a Lambda environment variable, so after adding or rotating it run the infrastructure workflow with `existing_environment_change` enabled.
 - Protect `main` (**Settings → Branches → Add rule**): require a pull request before merging and require the CI checks to pass, so code only reaches AWS through a reviewed merge.
 
 ## Important limitations
